@@ -46,7 +46,11 @@ class Loc(NamedTuple):
         return f"[{self.row}, {self.col}]"
 
 
-Locs = tuple[Loc, ...]
+class Target(NamedTuple):
+    """Target digit-segment inside a cell"""
+
+    loc: Loc
+    seg: int
 
 
 class Cell(tuple[int, ...]):

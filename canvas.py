@@ -1,6 +1,7 @@
+from typing import Iterable
 from ipycanvas import MultiCanvas, hold_canvas
 
-from board import Board, Loc, Node
+from board import Board, Loc, Node, Target
 
 CANVAS_SIZE = 640
 PADDING = 4
@@ -12,6 +13,11 @@ FONT1_COLOR = "#000"
 FONT2_SIZE = 32
 FONT2 = f"{FONT2_SIZE}px sans-serif"
 FONT2_COLOR = "#AAA"
+
+HIGHLIGHT_SIZE = 20
+HIGHLIGHT_R = HIGHLIGHT_SIZE / 2
+HIGHLIGHT_WIDTH = 3
+
 
 # matplotlib
 PALETTE_T10 = {
@@ -106,3 +112,22 @@ class SudokuCanvas(MultiCanvas):
                         canvas.font = FONT1
                         canvas.fill_style = FONT1_COLOR
                         canvas.fill_text(str(d), x0 + x, y0 + y + 1)
+
+    def clear_highlights(self):
+        canvas = self[2]
+        canvas.clear()
+
+    def highlight_targets(self, targets: Iterable[Target], color: str = HIGHLIGHT_COLOR):
+        canvas = self[2]
+        x0, y0 = PADDING, PADDING
+
+        with hold_canvas():
+            for loc, seg in targets:
+                x, y = segm_xy(loc, seg)
+                x += x0
+                y += y0
+                canvas.set_line_dash([])
+                canvas.line_width = HIGHLIGHT_WIDTH
+                canvas.fill_style = color
+                canvas.clear_rect(x - HIGHLIGHT_R, y - HIGHLIGHT_R, HIGHLIGHT_SIZE, HIGHLIGHT_SIZE)
+                canvas.fill_circle(x, y, HIGHLIGHT_R)
