@@ -4,6 +4,7 @@ from typing import Callable, NamedTuple, Self
 
 DIGITS = (1, 2, 3, 4, 5, 6, 7, 8, 9)
 POS9 = (1, 2, 3, 4, 5, 6, 7, 8, 9)
+POS81 = tuple(range(1, 82))
 
 
 class Loc(NamedTuple):
@@ -43,7 +44,7 @@ class Loc(NamedTuple):
         return self.forcol(self.col)
 
     def __str__(self) -> str:
-        return f"[{self.row}, {self.col}]"
+        return f"[{self.row},{self.col}]"
 
 
 class Target(NamedTuple):
@@ -51,6 +52,9 @@ class Target(NamedTuple):
 
     loc: Loc
     seg: int
+
+    def __str__(self):
+        return f"{self.seg}@{self.loc}"
 
 
 class Cell(tuple[int, ...]):

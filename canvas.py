@@ -18,6 +18,14 @@ HIGHLIGHT_SIZE = 20
 HIGHLIGHT_R = HIGHLIGHT_SIZE / 2
 HIGHLIGHT_WIDTH = 3
 
+LINK_WIDTH = 4
+
+DASHES = {
+    "SOLID": [],
+    "HARD": [],
+    "SOFT": [LINK_WIDTH * 2, LINK_WIDTH * 0.5],
+}
+
 
 # matplotlib
 PALETTE_T10 = {
@@ -117,17 +125,25 @@ class SudokuCanvas(MultiCanvas):
         canvas = self[2]
         canvas.clear()
 
-    def highlight_targets(self, targets: Iterable[Target], color: str = HIGHLIGHT_COLOR):
+    def highlight_target(self, target: Target, *, color: str = HIGHLIGHT_COLOR):
         canvas = self[2]
         x0, y0 = PADDING, PADDING
+        x, y = segm_xy(target.loc, target.seg)
+        x += x0
+        y += y0
+        canvas.set_line_dash([])
+        canvas.line_width = HIGHLIGHT_WIDTH
+        canvas.fill_style = color
+        canvas.clear_rect(x - HIGHLIGHT_R, y - HIGHLIGHT_R, HIGHLIGHT_SIZE, HIGHLIGHT_SIZE)
+        canvas.fill_circle(x, y, HIGHLIGHT_R)
 
-        with hold_canvas():
-            for loc, seg in targets:
-                x, y = segm_xy(loc, seg)
-                x += x0
-                y += y0
-                canvas.set_line_dash([])
-                canvas.line_width = HIGHLIGHT_WIDTH
-                canvas.fill_style = color
-                canvas.clear_rect(x - HIGHLIGHT_R, y - HIGHLIGHT_R, HIGHLIGHT_SIZE, HIGHLIGHT_SIZE)
-                canvas.fill_circle(x, y, HIGHLIGHT_R)
+    def highlight_link(self, link: tuple[Target, Target], *, color: str = HIGHLIGHT_COLOR, style: str = "SOLID"):
+        canvas = self[2]
+        x0, y0 = PADDING, PADDING
+        t1, t2 = link
+        x1, y1 = segm_xy(t1.loc, t1.seg)
+        x2, y2 = segm_xy(t2.loc, t2.seg)
+        canvas.set_line_dash(DASHES[style])
+        canvas.line_width = LINK_WIDTH
+        canvas.stroke_style = color
+        canvas.stroke_line(x0 + x1, y0 + y1, x0 + x2, y0 + y2)
