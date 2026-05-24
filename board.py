@@ -102,9 +102,6 @@ class Node(NamedTuple):
     cell: Cell
 
 
-Transformer = Callable[[Node], Node]
-
-
 class Board:
     """The container of Nodes adressed by Locs"""
 
@@ -146,11 +143,14 @@ class Board:
         else:
             return self.slice(loc)
 
-    @classmethod
-    def transform(cls, orig: Self, trans: Transformer) -> Self:
-        new = cls()
-        new.cells = tuple(trans(node).cell for node in orig)
-        return new
+
+Transformer = Callable[[Board, Node], Node]
+
+
+def transform(orig: Board, trans: Transformer) -> Board:
+    new = Board()
+    new.cells = tuple(trans(orig, node).cell for node in orig)
+    return new
 
 
 def parse(literal: str):
