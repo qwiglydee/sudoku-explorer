@@ -54,17 +54,34 @@ def cell_xy(loc: Loc):
     return (loc.col - 1) * CELL_SIZE, (loc.row - 1) * CELL_SIZE
 
 
+def xy_cell(x: int, y: int) -> Loc:
+    return Loc(int(y / CELL_SIZE) + 1, int(x / CELL_SIZE) + 1)
+
+
 def segm_rc(d: int):
     """sub-loc of a segment in a cell"""
     d0 = d - 1
     return d0 // 3, d0 % 3
 
 
-def segm_xy(loc: Loc, segm: int):
-    """center coords of a segment in a cell"""
+def segm_xy(segm: int):
+    """coords of a segment in a cell"""
+    ri, ci = segm_rc(segm)
+    return (ci + 0.5) * SEGM_SIZE, (ri + 0.5) * SEGM_SIZE
+
+
+def xy_segm(x: int, y: int) -> int:
+    loc = xy_cell(x, y)
     x0, y0 = cell_xy(loc)
-    r, c = segm_rc(segm)
-    return x0 + (c + 0.5) * SEGM_SIZE, y0 + (r + 0.5) * SEGM_SIZE
+    ci = int(x / SEGM_SIZE)
+    ri = int(y / SEGM_SIZE)
+    return 1 + ri * 3 + ci
+
+
+def targ_xy(targ: Target):
+    xc, yc = cell_xy(targ.loc)
+    xi, yi = segm_xy(targ.seg)
+    return xc + xi, yc + yi
 
 
 class SudokuCanvas(MultiCanvas):
@@ -95,8 +112,8 @@ class SudokuCanvas(MultiCanvas):
             canvas.stroke_rect(x0, y0, size, size)
 
     def draw_board(self, board: Board):
-        x0, y0 = PADDING, PADDING
         canvas = self[1]
+        x0, y0 = PADDING, PADDING
         canvas.text_baseline = "middle"
         canvas.text_align = "center"
 
@@ -111,15 +128,15 @@ class SudokuCanvas(MultiCanvas):
                     value = node.cell[0]
                     canvas.font = FONT2
                     canvas.fill_style = FONT2_COLOR
-                    canvas.fill_text(str(value), x0 + x + 0.5 * CELL_SIZE, y0 + y + 0.5 * CELL_SIZE)
+                    canvas.fill_text(str(value), x0 + x + 0.5 * CELL_SIZE, x0 + y + 0.5 * CELL_SIZE)
                 else:
                     for d in range(1, 10):
                         if d not in node.cell:
                             continue
-                        x, y = segm_xy(node.loc, d)
+                        x, y = targ_xy(Target(node.loc, d))
                         canvas.font = FONT1
                         canvas.fill_style = FONT1_COLOR
-                        canvas.fill_text(str(d), x0 + x, y0 + y + 1)
+                        canvas.fill_text(str(d), x0 + x, y0 + y)
 
     def clear_highlights(self):
         canvas = self[2]
@@ -128,22 +145,29 @@ class SudokuCanvas(MultiCanvas):
     def highlight_target(self, target: Target, *, color: str = HIGHLIGHT_COLOR):
         canvas = self[2]
         x0, y0 = PADDING, PADDING
-        x, y = segm_xy(target.loc, target.seg)
-        x += x0
-        y += y0
+        x, y = targ_xy(target)
         canvas.set_line_dash([])
         canvas.line_width = HIGHLIGHT_WIDTH
         canvas.fill_style = color
-        canvas.clear_rect(x - HIGHLIGHT_R, y - HIGHLIGHT_R, HIGHLIGHT_SIZE, HIGHLIGHT_SIZE)
-        canvas.fill_circle(x, y, HIGHLIGHT_R)
+        canvas.clear_rect(x0 + x - HIGHLIGHT_R, y0 + y - HIGHLIGHT_R, HIGHLIGHT_SIZE, HIGHLIGHT_SIZE)
+        canvas.fill_circle(x0 + x, y0 + y, HIGHLIGHT_R)
 
     def highlight_link(self, link: tuple[Target, Target], *, color: str = HIGHLIGHT_COLOR, style: str = "SOLID"):
         canvas = self[2]
         x0, y0 = PADDING, PADDING
         t1, t2 = link
-        x1, y1 = segm_xy(t1.loc, t1.seg)
-        x2, y2 = segm_xy(t2.loc, t2.seg)
+        x1, y1 = targ_xy(t1)
+        x2, y2 = targ_xy(t2)
+
         canvas.set_line_dash(DASHES[style])
         canvas.line_width = LINK_WIDTH
         canvas.stroke_style = color
         canvas.stroke_line(x0 + x1, y0 + y1, x0 + x2, y0 + y2)
+
+    def map_target(self, x: int, y: int):
+        x -= PADDING
+        y -= PADDING
+        loc = xy_cell(x, y)
+        xc, yc = cell_xy(loc)
+        seg = xy_segm(int(x - xc), int(y - yc))
+        return Target(loc, seg)
