@@ -1,5 +1,6 @@
 import re
 from collections.abc import Generator, Iterable
+from types import EllipsisType
 from typing import Callable, NamedTuple, Self
 
 DIGITS = (1, 2, 3, 4, 5, 6, 7, 8, 9)
@@ -19,32 +20,31 @@ class Loc(NamedTuple):
         bc = (self.col - 1) // 3
         return 1 + br * 3 + bc
 
-    @classmethod
-    def forblk(cls, blk: int) -> tuple[Self, ...]:
-        b0 = blk - 1
-        r1 = 1 + 3 * (b0 // 3)
-        c1 = 1 + 3 * (b0 % 3)
-        return tuple(cls(r, c) for r in range(r1, r1 + 3) for c in range(c1, c1 + 3))
-
-    def allblk(self) -> tuple[Self, ...]:
-        return self.forblk(self.blk)
-
-    @classmethod
-    def forrow(cls, row: int) -> tuple[Self, ...]:
-        return tuple(cls(row, i) for i in POS9)
-
-    def allrow(self) -> tuple[Self, ...]:
-        return self.forrow(self.row)
-
-    @classmethod
-    def forcol(cls, col: int) -> tuple[Self, ...]:
-        return tuple(cls(i, col) for i in POS9)
-
-    def allcol(self) -> tuple[Self, ...]:
-        return self.forcol(self.col)
-
     def __str__(self) -> str:
         return f"[{self.row},{self.col}]"
+
+
+class Locality(NamedTuple):
+    """Locality of block, row, col or cell"""
+
+    blk: int | EllipsisType
+    row: int | EllipsisType
+    col: int | EllipsisType
+
+    def __iter__(self) -> Generator[Loc]:
+        if isinstance(self.blk, int):
+            b0 = self.blk - 1
+            r1 = 1 + 3 * (b0 // 3)
+            c1 = 1 + 3 * (b0 % 3)
+            yield from (Loc(r, c) for r in range(r1, r1 + 3) for c in range(c1, c1 + 3))
+        elif isinstance(self.row, int) and isinstance(self.col, int):
+            yield Loc(self.row, self.col)
+        elif isinstance(self.row, int):
+            yield from (Loc(self.row, i) for i in POS9)
+        elif isinstance(self.col, int):
+            yield from (Loc(i, self.col) for i in POS9)
+        else:
+            raise TypeError()
 
 
 class Target(NamedTuple):
