@@ -24,29 +24,6 @@ class Loc(NamedTuple):
         return f"[{self.row},{self.col}]"
 
 
-class Locality(NamedTuple):
-    """Locality of block, row, col or cell"""
-
-    blk: int | EllipsisType
-    row: int | EllipsisType
-    col: int | EllipsisType
-
-    def __iter__(self) -> Generator[Loc]:
-        if isinstance(self.blk, int):
-            b0 = self.blk - 1
-            r1 = 1 + 3 * (b0 // 3)
-            c1 = 1 + 3 * (b0 % 3)
-            yield from (Loc(r, c) for r in range(r1, r1 + 3) for c in range(c1, c1 + 3))
-        elif isinstance(self.row, int) and isinstance(self.col, int):
-            yield Loc(self.row, self.col)
-        elif isinstance(self.row, int):
-            yield from (Loc(self.row, i) for i in POS9)
-        elif isinstance(self.col, int):
-            yield from (Loc(i, self.col) for i in POS9)
-        else:
-            raise TypeError()
-
-
 class Target(NamedTuple):
     """Target digit-segment inside a cell"""
 
