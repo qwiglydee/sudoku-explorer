@@ -9,7 +9,7 @@ POS81 = tuple(range(1, 82))
 
 
 class Loc(NamedTuple):
-    """Location in a board"""
+    """Location of a cell in a board"""
 
     row: int
     col: int
@@ -24,6 +24,71 @@ class Loc(NamedTuple):
         return f"[{self.row},{self.col}]"
 
 
+class Locality(NamedTuple):
+    """Locality of a block, row, col or cell"""
+
+    blk: int | EllipsisType
+    row: int | EllipsisType
+    col: int | EllipsisType
+
+    def __iter__(self) -> Generator[Loc]:
+        """Generate all locations in the locality"""
+        match (self.blk, self.row, self.col):  # NB: cannot use self-match because of recursion
+            case (int(b), EllipsisType(), EllipsisType()):
+                b0 = b - 1
+                r1 = 1 + 3 * (b0 // 3)
+                c1 = 1 + 3 * (b0 % 3)
+                yield from (Loc(r, c) for r in range(r1, r1 + 3) for c in range(c1, c1 + 3))
+            case (EllipsisType(), int(r), int(c)):
+                yield Loc(r, c)
+            case (EllipsisType(), int(r), EllipsisType()):
+                yield from (Loc(r, i) for i in POS9)
+            case (EllipsisType(), EllipsisType(), int(c)):
+                yield from (Loc(i, c) for i in POS9)
+            case _:
+                raise TypeError()
+
+    def __contains__(self, loc: Loc) -> bool:
+        """Chack if location is in the locality"""
+        match (self.blk, self.row, self.col):
+            case (int(b), EllipsisType(), EllipsisType()):
+                return loc.blk == b
+            case (EllipsisType(), int(r), int(c)):
+                return loc.row == r and loc.col == c
+            case (EllipsisType(), int(r), EllipsisType()):
+                return loc.row == r
+            case (EllipsisType(), EllipsisType(), int(c)):
+                return loc.col == c
+            case _:
+                raise TypeError()
+
+    @classmethod
+    def common(cls, l1: Loc, l2: Loc) -> Generator[Self]:
+        """Get all localities common for the locs"""
+        if l1 == l2:
+            yield cls(..., l1.row, l2.col)
+            return
+        if l1.blk == l2.blk:
+            yield cls(l1.blk, ..., ...)
+        if l1.row == l2.row:
+            yield cls(..., l1.row, ...)
+        if l1.col == l2.col:
+            yield cls(..., ..., l1.col)
+
+    def __str__(self):
+        match (self.blk, self.row, self.col):
+            case (int(b), EllipsisType(), EllipsisType()):
+                return f"{{blk:{b}}}"
+            case (EllipsisType(), int(r), int(c)):
+                return f"{{[{r},{c}]}}"
+            case (EllipsisType(), int(r), EllipsisType()):
+                return f"{{[{r},*]}}"
+            case (EllipsisType(), EllipsisType(), int(c)):
+                return f"{{[*,{c}]}}"
+            case _:
+                raise TypeError()
+
+
 class Target(NamedTuple):
     """Target digit-segment inside a cell"""
 
@@ -36,8 +101,6 @@ class Target(NamedTuple):
 
 class Cell(tuple[int, ...]):
     """Set of digits in a cell"""
-
-    # immutable object
 
     def __or__(self, other) -> Self:
         return self.__class__(set(self) | set(other))
@@ -73,10 +136,11 @@ class Node(NamedTuple):
     Decoupled from board itself
     """
 
-    # immutable object
-
     loc: Loc
     cell: Cell
+
+    def __iter__(self) -> Iterable[Target]:
+        return tuple(Target(self.loc, d) for d in self.cell)
 
 
 class Board:
@@ -128,6 +192,10 @@ def transform(orig: Board, trans: Transformer) -> Board:
     new = Board()
     new.cells = tuple(trans(orig, node).cell for node in orig)
     return new
+
+
+def zerotransformer(_: Board, node: Node):
+    return node
 
 
 def parse(literal: str):
