@@ -1,7 +1,6 @@
-from typing import Iterable
 from ipycanvas import MultiCanvas, hold_canvas
 
-from board import Board, Loc, Node, Target
+from board import Board, Loc, Target
 
 CANVAS_SIZE = 640
 PADDING = 4
