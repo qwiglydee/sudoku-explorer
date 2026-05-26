@@ -43,8 +43,12 @@ PALETTE_T10 = {
 HIGHLIGHT_COLOR = PALETTE_T10["blue"]
 
 
-def digit_rc(d: int):
-    d0 = d - 1
+def pick_color(color: str):
+    return PALETTE_T10.get(color, color)
+
+
+def digit_rc(dig: int):
+    d0 = dig - 1
     return d0 // 3, d0 % 3
 
 
@@ -57,15 +61,15 @@ def xy_cell(x: int, y: int) -> Loc:
     return Loc(int(y / CELL_SIZE) + 1, int(x / CELL_SIZE) + 1)
 
 
-def segm_rc(d: int):
+def segm_rc(dig: int):
     """sub-loc of a segment in a cell"""
-    d0 = d - 1
+    d0 = dig - 1
     return d0 // 3, d0 % 3
 
 
-def segm_xy(segm: int):
+def segm_xy(dig: int):
     """coords of a segment in a cell"""
-    ri, ci = segm_rc(segm)
+    ri, ci = segm_rc(dig)
     return (ci + 0.5) * SEGM_SIZE, (ri + 0.5) * SEGM_SIZE
 
 
@@ -79,7 +83,7 @@ def xy_segm(x: int, y: int) -> int:
 
 def targ_xy(targ: Target):
     xc, yc = cell_xy(targ.loc)
-    xi, yi = segm_xy(targ.seg)
+    xi, yi = segm_xy(targ.dig)
     return xc + xi, yc + yi
 
 
@@ -147,7 +151,7 @@ class SudokuCanvas(MultiCanvas):
         x, y = targ_xy(target)
         canvas.set_line_dash([])
         canvas.line_width = HIGHLIGHT_WIDTH
-        canvas.fill_style = color
+        canvas.fill_style = pick_color(color)
         canvas.clear_rect(x0 + x - HIGHLIGHT_R, y0 + y - HIGHLIGHT_R, HIGHLIGHT_SIZE, HIGHLIGHT_SIZE)
         canvas.fill_circle(x0 + x, y0 + y, HIGHLIGHT_R)
 
@@ -160,7 +164,7 @@ class SudokuCanvas(MultiCanvas):
 
         canvas.set_line_dash(DASHES[style])
         canvas.line_width = LINK_WIDTH
-        canvas.stroke_style = color
+        canvas.stroke_style = pick_color(color)
         canvas.stroke_line(x0 + x1, y0 + y1, x0 + x2, y0 + y2)
 
     def map_target(self, x: int, y: int):

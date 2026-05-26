@@ -48,6 +48,9 @@ class Locality(NamedTuple):
             case _:
                 raise TypeError()
 
+    def locs(self) -> Iterable[Loc]:
+        return tuple(iter(self))
+
     def __contains__(self, loc: Loc) -> bool:
         """Chack if location is in the locality"""
         match (self.blk, self.row, self.col):
@@ -102,14 +105,16 @@ class Target(NamedTuple):
     """Target digit-segment inside a cell"""
 
     loc: Loc
-    seg: int
+    dig: int
 
     def __str__(self):
-        return f"{self.seg}@{self.loc}"
+        return f"{self.dig}@{self.loc}"
 
 
 class Cell(tuple[int, ...]):
     """Set of digits in a cell"""
+
+    # assuming it is always ordered because started by DIGITS and only removing
 
     def __or__(self, other) -> Self:
         return self.__class__(set(self) | set(other))
@@ -121,6 +126,7 @@ class Cell(tuple[int, ...]):
         return self.__class__(set(self) ^ set(other))
 
     def __sub__(self, other) -> Self:
+        # this preserves order
         return self.__class__(d for d in self if d not in other)
 
     @property
@@ -146,7 +152,7 @@ class Cell(tuple[int, ...]):
             return "Cell()"
 
     def __str__(self):
-        joined = "".join(map(str, sorted(self)))
+        joined = "".join(map(str, self))
         return f"{{{joined}}}"
 
     def __hash__(self):
@@ -171,6 +177,9 @@ class Node(NamedTuple):
 
     def __str__(self):
         return "".join(map(str, self.cell)) + f"@{self.loc}"
+
+
+Transformer = Callable[[Node], Node]
 
 
 class Board:
@@ -220,18 +229,18 @@ class Board:
     def __eq__(self, other: Self) -> bool:
         return all(s == o for s, o in zip(self.cells, other.cells))
 
+    def __ne__(self, other: Self) -> bool:
+        return not (self == other)
 
-Transformer = Callable[[Board, Node], Node]
+    @classmethod
+    def transform(cls, orig: Self, trans: Transformer) -> Self:
+        new = cls()
 
+        def t(node) -> Node:
+            return node if node.cell.is_final else trans(node)
 
-def transform(orig: Board, trans: Transformer) -> Board:
-    new = Board()
-
-    def t(node) -> Node:
-        return node if node.cell.is_final else trans(orig, node)
-
-    new.cells = tuple(Cell(t(node).cell) for node in orig)
-    return new
+        new.cells = tuple(Cell(t(node).cell) for node in orig)
+        return new
 
 
 def zerotransformer(_: Board, node: Node):
