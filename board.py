@@ -63,8 +63,17 @@ class Locality(NamedTuple):
                 raise TypeError()
 
     @classmethod
+    def around(cls, loc: Loc) -> Iterable[Self]:
+        """Get all localities around loc, excluding the cell"""
+        return (
+            cls(loc.blk, ..., ...),
+            cls(..., loc.row, ...),
+            cls(..., ..., loc.col),
+        )
+
+    @classmethod
     def common(cls, l1: Loc, l2: Loc) -> Generator[Self]:
-        """Get all localities common for the locs"""
+        """Get all localities common for the locs, including cell itself"""
         if l1 == l2:
             yield cls(..., l1.row, l2.col)
             return
@@ -130,6 +139,24 @@ class Cell(tuple[int, ...]):
     def is_draft(self) -> bool:
         return len(self) > 1
 
+    def __repr__(self):
+        if len(self):
+            return f"Cell({super().__repr__()})"
+        else:
+            return "Cell()"
+
+    def __str__(self):
+        joined = "".join(map(str, sorted(self)))
+        return f"{{{joined}}}"
+
+    def __hash__(self):
+        # unordered
+        return hash(frozenset(self))
+
+    def __eq__(self, other: Self):
+        # unordered
+        return hash(self) == hash(other)
+
 
 class Node(NamedTuple):
     """Node in a board containing digits
@@ -139,8 +166,11 @@ class Node(NamedTuple):
     loc: Loc
     cell: Cell
 
-    def __iter__(self) -> Iterable[Target]:
-        return tuple(Target(self.loc, d) for d in self.cell)
+    def __iter__(self) -> Generator[Target]:
+        return (Target(self.loc, d) for d in self.cell)
+
+    def __str__(self):
+        return "".join(map(str, self.cell)) + f"@{self.loc}"
 
 
 class Board:
@@ -175,14 +205,20 @@ class Board:
     def get(self, loc: Loc) -> Node:
         return Node(loc, self.cells[self.__idx(loc)])
 
-    def slice(self, locs: Iterable[Loc]) -> Iterable[Node]:
-        return tuple(self.get(loc) for loc in locs)
+    def slice(self, locs: Iterable[Loc] | Locality, filter: None | Callable[[Node], bool] = None) -> Iterable[Node]:
+        nodes = tuple(self.get(loc) for loc in locs)
+        if filter is None:
+            return nodes
+        return tuple(n for n in nodes if filter(n))
 
-    def __getitem__(self, loc: Loc | Iterable[Loc]) -> Node | Iterable[Node]:
+    def __getitem__(self, loc: Loc | Iterable[Loc] | Locality) -> Node | Iterable[Node]:
         if isinstance(loc, Loc):
             return self.get(loc)
         else:
             return self.slice(loc)
+
+    def __eq__(self, other: Self) -> bool:
+        return all(s == o for s, o in zip(self.cells, other.cells))
 
 
 Transformer = Callable[[Board, Node], Node]
@@ -190,7 +226,11 @@ Transformer = Callable[[Board, Node], Node]
 
 def transform(orig: Board, trans: Transformer) -> Board:
     new = Board()
-    new.cells = tuple(trans(orig, node).cell for node in orig)
+
+    def t(node) -> Node:
+        return node if node.cell.is_final else trans(orig, node)
+
+    new.cells = tuple(Cell(t(node).cell) for node in orig)
     return new
 
 
