@@ -1,6 +1,7 @@
+from itertools import combinations
 from ipycanvas import MultiCanvas, hold_canvas
 
-from board import Board, Loc, Target
+from board import Board, Loc, Target, MultiTarget
 
 CANVAS_SIZE = 640
 PADDING = 4
@@ -15,8 +16,8 @@ FONT2_COLOR = "#AAA"
 
 HIGHLIGHT_SIZE = 20
 HIGHLIGHT_R = HIGHLIGHT_SIZE / 2
-HIGHLIGHT_WIDTH = 3
 
+GROUP_WIDTH = 6
 LINK_WIDTH = 4
 
 DASHES = {
@@ -81,9 +82,9 @@ def xy_segm(x: int, y: int) -> int:
     return 1 + ri * 3 + ci
 
 
-def targ_xy(targ: Target):
-    xc, yc = cell_xy(targ.loc)
-    xi, yi = segm_xy(targ.dig)
+def targ_xy(loc: Loc, dig: int):
+    xc, yc = cell_xy(loc)
+    xi, yi = segm_xy(dig)
     return xc + xi, yc + yi
 
 
@@ -126,20 +127,20 @@ class SudokuCanvas(MultiCanvas):
                 if node.cell.is_empty:
                     continue
 
+                xc, yc = cell_xy(node.loc)
                 if node.cell.is_final:
-                    x, y = cell_xy(node.loc)
                     value = node.cell.final
                     canvas.font = FONT2
                     canvas.fill_style = FONT2_COLOR
-                    canvas.fill_text(str(value), x0 + x + 0.5 * CELL_SIZE, x0 + y + 0.5 * CELL_SIZE)
+                    canvas.fill_text(str(value), x0 + xc + 0.5 * CELL_SIZE, x0 + yc + 0.5 * CELL_SIZE)
                 else:
-                    for d in range(1, 10):
-                        if d not in node.cell:
+                    for dig in range(1, 10):
+                        if dig not in node.cell:
                             continue
-                        x, y = targ_xy(Target(node.loc, d))
+                        x, y = segm_xy(dig)
                         canvas.font = FONT1
                         canvas.fill_style = FONT1_COLOR
-                        canvas.fill_text(str(d), x0 + x, y0 + y)
+                        canvas.fill_text(str(dig), x0 + xc + x, y0 + yc + y)
 
     def clear_highlights(self):
         canvas = self[2]
@@ -148,19 +149,38 @@ class SudokuCanvas(MultiCanvas):
     def highlight_target(self, target: Target, *, color: str = HIGHLIGHT_COLOR):
         canvas = self[2]
         x0, y0 = PADDING, PADDING
-        x, y = targ_xy(target)
+        xc, yc = cell_xy(target.loc)
+        x, y = segm_xy(target.dig)
         canvas.set_line_dash([])
-        canvas.line_width = HIGHLIGHT_WIDTH
         canvas.fill_style = pick_color(color)
-        canvas.clear_rect(x0 + x - HIGHLIGHT_R, y0 + y - HIGHLIGHT_R, HIGHLIGHT_SIZE, HIGHLIGHT_SIZE)
-        canvas.fill_circle(x0 + x, y0 + y, HIGHLIGHT_R)
+        canvas.clear_rect(x0 + xc + x - HIGHLIGHT_R, y0 + yc + y - HIGHLIGHT_R, HIGHLIGHT_SIZE, HIGHLIGHT_SIZE)
+        canvas.fill_circle(x0 + xc + x, y0 + yc + y, HIGHLIGHT_R)
+
+    def highlight_group(self, target: MultiTarget, *, color: str = HIGHLIGHT_COLOR):
+        canvas = self[2]
+        x0, y0 = PADDING, PADDING
+        xc, yc = cell_xy(target.loc)
+        canvas.set_line_dash([])
+        canvas.fill_style = pick_color(color)
+        for d1, d2 in combinations(target.digs, 2):
+            x1, y1 = segm_xy(d1)
+            x2, y2 = segm_xy(d2)
+            canvas.set_line_dash(DASHES["SOLID"])
+            canvas.line_width = GROUP_WIDTH
+            canvas.stroke_style = pick_color(color)
+            canvas.stroke_line(x0 + xc + x1, y0 + yc + y1, x0 + xc + x2, y0 + yc + y2)
+        for dig in target.digs:
+            x, y = segm_xy(dig)
+            canvas.clear_rect(x0 + xc + x - HIGHLIGHT_R, y0 + yc + y - HIGHLIGHT_R, HIGHLIGHT_SIZE, HIGHLIGHT_SIZE)
+            canvas.fill_circle(x0 + xc + x, y0 + yc + y, HIGHLIGHT_R)
 
     def highlight_link(self, link: tuple[Target, Target], *, color: str = HIGHLIGHT_COLOR, style: str = "SOLID"):
         canvas = self[2]
         x0, y0 = PADDING, PADDING
         t1, t2 = link
-        x1, y1 = targ_xy(t1)
-        x2, y2 = targ_xy(t2)
+
+        x1, y1 = targ_xy(t1.loc, t1.dig)
+        x2, y2 = targ_xy(t2.loc, t2.dig)
 
         canvas.set_line_dash(DASHES[style])
         canvas.line_width = LINK_WIDTH
