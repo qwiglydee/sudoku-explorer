@@ -128,7 +128,7 @@ class SudokuCanvas(MultiCanvas):
 
                 if node.cell.is_final:
                     x, y = cell_xy(node.loc)
-                    value = node.cell[0]
+                    value = node.cell.final
                     canvas.font = FONT2
                     canvas.fill_style = FONT2_COLOR
                     canvas.fill_text(str(value), x0 + x + 0.5 * CELL_SIZE, x0 + y + 0.5 * CELL_SIZE)

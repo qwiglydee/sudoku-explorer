@@ -2,7 +2,7 @@ from collections.abc import Generator
 from dataclasses import dataclass
 from typing import Any, AsyncGenerator, Callable
 
-from board import Board, Node, Target
+from board import Cell, Board, Node, Target
 
 
 @dataclass
@@ -17,7 +17,7 @@ class Resolution:
             cell = node.cell
             for rem in self.castaways:
                 if rem.loc == node.loc:
-                    cell = cell - {rem.dig}
+                    cell = Cell(cell - {rem.dig})
             return Node(node.loc, cell)
 
         return Board.transform(current, trans)

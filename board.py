@@ -111,23 +111,19 @@ class Target(NamedTuple):
         return f"{self.dig}@{self.loc}"
 
 
-class Cell(tuple[int, ...]):
+class MultiTarget(NamedTuple):
+    """Target multiple digit-segment inside a cell"""
+
+    loc: Loc
+    digs: frozenset[int]
+
+    def __str__(self):
+        joined = "".join(map(str, self))
+        return f"{joined}@{self.loc}"
+
+
+class Cell(frozenset[int]):
     """Set of digits in a cell"""
-
-    # assuming it is always ordered because started by DIGITS and only removing
-
-    def __or__(self, other) -> Self:
-        return self.__class__(set(self) | set(other))
-
-    def __and__(self, other) -> Self:
-        return self.__class__(set(self) & set(other))
-
-    def __xor__(self, other) -> Self:
-        return self.__class__(set(self) ^ set(other))
-
-    def __sub__(self, other) -> Self:
-        # this preserves order
-        return self.__class__(d for d in self if d not in other)
 
     @property
     def is_empty(self) -> bool:
@@ -138,12 +134,14 @@ class Cell(tuple[int, ...]):
         return len(self) == 1
 
     @property
-    def final(self) -> int | None:
-        return self[0] if self.is_final else None
-
-    @property
     def is_draft(self) -> bool:
         return len(self) > 1
+
+    @property
+    def final(self) -> int | None:
+        if len(self) == 1:
+            (d,) = self
+            return d
 
     def __repr__(self):
         if len(self):
@@ -154,14 +152,6 @@ class Cell(tuple[int, ...]):
     def __str__(self):
         joined = "".join(map(str, self))
         return f"{{{joined}}}"
-
-    def __hash__(self):
-        # unordered
-        return hash(frozenset(self))
-
-    def __eq__(self, other: Self):
-        # unordered
-        return hash(self) == hash(other)
 
 
 class Node(NamedTuple):
@@ -184,8 +174,6 @@ Transformer = Callable[[Node], Node]
 
 class Board:
     """The container of Nodes adressed by Locs"""
-
-    # supposed to be immutable as well
 
     # storing in row-major order
     cells: tuple[Cell, ...]
