@@ -21,7 +21,7 @@ class Loc(NamedTuple):
         return 1 + br * 3 + bc
 
     def __str__(self) -> str:
-        return f"[{self.row},{self.col}]"
+        return f"r{self.row}c{self.col}"
 
 
 class Locality(NamedTuple):
@@ -90,13 +90,13 @@ class Locality(NamedTuple):
     def __str__(self):
         match (self.blk, self.row, self.col):
             case (int(b), EllipsisType(), EllipsisType()):
-                return f"{{blk:{b}}}"
+                return f"{{b{b}}}"
             case (EllipsisType(), int(r), int(c)):
-                return f"{{[{r},{c}]}}"
+                return f"{{r{r}c{c}}}"
             case (EllipsisType(), int(r), EllipsisType()):
-                return f"{{[{r},*]}}"
+                return f"{{r{r}}}"
             case (EllipsisType(), EllipsisType(), int(c)):
-                return f"{{[*,{c}]}}"
+                return f"{{c{c}}}"
             case _:
                 raise TypeError()
 
@@ -108,7 +108,7 @@ class Target(NamedTuple):
     dig: int
 
     def __str__(self):
-        return f"{self.dig}@{self.loc}"
+        return f"{self.dig}{self.loc}"
 
 
 class MultiTarget(NamedTuple):
@@ -118,8 +118,8 @@ class MultiTarget(NamedTuple):
     digs: frozenset[int]
 
     def __str__(self):
-        joined = "".join(map(str, self))
-        return f"{joined}@{self.loc}"
+        joined = "".join(map(str, self.digs))
+        return f"{joined}{self.loc}"
 
 
 class Cell(frozenset[int]):
@@ -143,15 +143,8 @@ class Cell(frozenset[int]):
             (d,) = self
             return d
 
-    def __repr__(self):
-        if len(self):
-            return f"Cell({super().__repr__()})"
-        else:
-            return "Cell()"
-
     def __str__(self):
-        joined = "".join(map(str, self))
-        return f"{{{joined}}}"
+        return "".join(map(str, self))
 
 
 class Node(NamedTuple):
@@ -166,7 +159,7 @@ class Node(NamedTuple):
         return (Target(self.loc, d) for d in self.cell)
 
     def __str__(self):
-        return "".join(map(str, self.cell)) + f"@{self.loc}"
+        return f"{self.cell}@{self.loc}"
 
 
 Transformer = Callable[[Node], Node]
