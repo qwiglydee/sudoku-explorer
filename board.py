@@ -195,11 +195,14 @@ class Board:
     def get(self, loc: Loc) -> Node:
         return Node(loc, self.cells[self.__idx(loc)])
 
-    def slice(self, locs: Iterable[Loc] | Locality, filter: None | Callable[[Node], bool] = None) -> Iterable[Node]:
+    def slice(self, locs: Iterable[Loc] | Locality, filt: Callable[[Node], bool] | None = None) -> Iterable[Node]:
         nodes = tuple(self.get(loc) for loc in locs)
-        if filter is None:
-            return nodes
-        return tuple(n for n in nodes if filter(n))
+        return tuple(n for n in nodes if filt(n)) if filt is not None else nodes
+
+    def drafts(self, locs: Iterable[Loc] | Locality | None = None, filt: None | Callable[[Node], bool] = None) -> Iterable[Node]:
+        nodes = tuple(self.get(loc) for loc in locs) if locs is not None else tuple(iter(self))
+        drafts = tuple(filter(lambda n: n.cell.is_draft, nodes))
+        return tuple(n for n in drafts if filt(n)) if filt is not None else drafts
 
     def __getitem__(self, loc: Loc | Iterable[Loc] | Locality) -> Node | Iterable[Node]:
         if isinstance(loc, Loc):

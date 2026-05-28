@@ -11,25 +11,6 @@ def diff(b1: Board, b2: Board):
     return new
 
 
-def filter_empty(node: Node):
-    return node.cell.is_empty
-
-
-def filter_drafts(node: Node):
-    return node.cell.is_draft
-
-
-def filter_finals(node: Node):
-    return node.cell.is_final
-
-
-def filter_digit(digit: int):
-    def filtering(node: Node):
-        return digit in node.cell
-
-    return filtering
-
-
 def iter_layer(board: Board, digit: int) -> Iterable[Target]:
     return tuple(Target(node.loc, digit) for node in board if digit in node.cell)
 
