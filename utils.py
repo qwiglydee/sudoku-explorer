@@ -1,7 +1,8 @@
+from collections import Counter
 import re
 from typing import Iterable
 
-from board import POS9, Board, Cell, Loc, Locality, Node, Target
+from board import DIGITS, POS9, Board, Cell, Loc, Locality, Node, Target
 
 
 def diff(b1: Board, b2: Board):
@@ -79,3 +80,20 @@ def bprint(board: Board):
             print("═══╪═══╪═══╬═══╪═══╪═══╬═══╪═══╪═══")
         elif r1 % 3 == 0:
             print("───┼───┼───╫───┼───┼───╫───┼───┼───")
+
+
+def countfinals(board: Board) -> Counter:
+    return Counter(c.final for c in board.cells if c.is_final)
+
+
+def validate(board: Board):
+    if sum(c.is_draft for c in board.cells) > 0:
+        return "INCOMPLETE"
+
+    def fulfiled(zone: Locality):
+        return set(board.get(loc).cell.final for loc in zone) == DIGITS
+
+    if all(map(fulfiled, iter_allzones())):
+        return "SOLVED"
+    else:
+        return "BROKEN"

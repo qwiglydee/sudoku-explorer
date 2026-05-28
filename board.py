@@ -3,7 +3,7 @@ from collections.abc import Generator, Iterable
 from types import EllipsisType
 from typing import Callable, NamedTuple, Self
 
-DIGITS = (1, 2, 3, 4, 5, 6, 7, 8, 9)
+DIGITS = {1, 2, 3, 4, 5, 6, 7, 8, 9}
 POS9 = (1, 2, 3, 4, 5, 6, 7, 8, 9)
 POS81 = tuple(range(1, 82))
 
