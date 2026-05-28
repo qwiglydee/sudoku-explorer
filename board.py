@@ -221,11 +221,26 @@ class Board:
         return not (self == other)
 
     @classmethod
-    def transform(cls, orig: Self, trans: Transformer) -> Self:
+    def replace(cls, orig: Self, loc: Loc, cell: Cell) -> Self:
+        """Replace single cell"""
+
+        def t(node) -> Cell:
+            if node.loc == loc:
+                return cell
+            else:
+                return node.cell
+
         new = cls()
+        new.cells = tuple(t(node) for node in orig)
+        return new
+
+    @classmethod
+    def transform(cls, orig: Self, trans: Transformer) -> Self:
+        """Apply transformer to all draft nodes"""
 
         def t(node) -> Node:
             return node if node.cell.is_final else trans(node)
 
+        new = cls()
         new.cells = tuple(Cell(t(node).cell) for node in orig)
         return new

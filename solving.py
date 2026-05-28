@@ -2,25 +2,28 @@ from collections.abc import Generator
 from dataclasses import dataclass
 from typing import Any, AsyncGenerator, Callable
 
-from board import Cell, Board, Node, Target
+from board import Cell, Board, Target
 
 
 @dataclass
 class Resolution:
     castaways: set[Target]
-    highlights: dict[str, set[Any]]
+    finals: set[Target]
 
     def apply(self, current: Board) -> Board:
-        """Just removing all castaways from the board"""
+        """Removing castaways and isolating all finals"""
 
-        def trans(node: Node) -> Node:
-            cell = node.cell
-            for rem in self.castaways:
-                if rem.loc == node.loc:
-                    cell = Cell(cell - {rem.dig})
-            return Node(node.loc, cell)
+        for trg in self.castaways:
+            orig = current.get(trg.loc)
+            current = Board.replace(current, trg.loc, Cell(orig.cell - {trg.dig}))
 
-        return Board.transform(current, trans)
+        for trg in self.finals:
+            current = Board.replace(current, trg.loc, Cell({trg.dig}))
+
+        return current
+
+    # for inspecting
+    highlights: dict[str, set[Any]] | None = None
 
 
 Resolving = Generator[Resolution]
