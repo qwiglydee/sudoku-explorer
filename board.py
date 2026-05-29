@@ -1,5 +1,5 @@
-import re
 from collections.abc import Generator, Iterable
+from functools import reduce
 from types import EllipsisType
 from typing import Callable, NamedTuple, Self
 
@@ -25,14 +25,16 @@ class Loc(NamedTuple):
 
 
 class Locality(NamedTuple):
-    """Locality of a block, row, col or cell"""
+    """Locality of a block, row, col or cell
+    Defines topoligy of the board.
+    """
 
     blk: int | EllipsisType
     row: int | EllipsisType
     col: int | EllipsisType
 
-    def __iter__(self) -> Generator[Loc]:
-        """Generate all locations in the locality"""
+    def iter(self) -> Iterable[Loc]:
+        """Iterate all locations in the locality"""
         match (self.blk, self.row, self.col):  # NB: cannot use self-match because of recursion
             case (int(b), EllipsisType(), EllipsisType()):
                 b0 = b - 1
@@ -48,8 +50,8 @@ class Locality(NamedTuple):
             case _:
                 raise TypeError()
 
-    def locs(self) -> Iterable[Loc]:
-        return tuple(iter(self))
+    def locs(self) -> set[Loc]:
+        return set(self.iter())
 
     def __contains__(self, loc: Loc) -> bool:
         """Chack if location is in the locality"""
@@ -66,8 +68,16 @@ class Locality(NamedTuple):
                 raise TypeError()
 
     @classmethod
+    def conjunc(cls, *zones: Self) -> Iterable[Loc]:
+        return reduce(lambda a, b: a & b, (z.locs() for z in zones))
+
+    @classmethod
+    def disjunc(cls, *zones: Self) -> Iterable[Loc]:
+        return reduce(lambda a, b: a | b, (z.locs() for z in zones))
+
+    @classmethod
     def around(cls, loc: Loc) -> Iterable[Self]:
-        """Get all localities around loc, excluding the cell"""
+        """Get all localities containing the loc"""
         return (
             cls(loc.blk, ..., ...),
             cls(..., loc.row, ...),
@@ -75,8 +85,8 @@ class Locality(NamedTuple):
         )
 
     @classmethod
-    def common(cls, l1: Loc, l2: Loc) -> Generator[Self]:
-        """Get all localities common for the locs, including cell itself"""
+    def shared(cls, l1: Loc, l2: Loc) -> Iterable[Self]:
+        """Get all localities containing both of the locs"""
         if l1 == l2:
             yield cls(..., l1.row, l2.col)
             return
@@ -86,6 +96,15 @@ class Locality(NamedTuple):
             yield cls(..., l1.row, ...)
         if l1.col == l2.col:
             yield cls(..., ..., l1.col)
+
+    @classmethod
+    def all(cls) -> Iterable[Self]:
+        for i in POS9:
+            yield cls(i, ..., ...)
+        for i in POS9:
+            yield cls(..., i, ...)
+        for i in POS9:
+            yield cls(..., ..., i)
 
     def __str__(self):
         match (self.blk, self.row, self.col):
@@ -99,27 +118,6 @@ class Locality(NamedTuple):
                 return f"{{c{c}}}"
             case _:
                 raise TypeError()
-
-
-class Target(NamedTuple):
-    """Target digit-segment inside a cell"""
-
-    loc: Loc
-    dig: int
-
-    def __str__(self):
-        return f"{self.dig}{self.loc}"
-
-
-class MultiTarget(NamedTuple):
-    """Target multiple digit-segment inside a cell"""
-
-    loc: Loc
-    digs: frozenset[int]
-
-    def __str__(self):
-        joined = "".join(map(str, self.digs))
-        return f"{joined}{self.loc}"
 
 
 class Cell(frozenset[int]):
@@ -155,11 +153,11 @@ class Node(NamedTuple):
     loc: Loc
     cell: Cell
 
-    def __iter__(self) -> Generator[Target]:
-        return (Target(self.loc, d) for d in self.cell)
-
     def __str__(self):
         return f"{self.cell}@{self.loc}"
+
+    def __iter__(self):
+        raise TypeError()
 
 
 Transformer = Callable[[Node], Node]
@@ -196,11 +194,19 @@ class Board:
         return Node(loc, self.cells[self.__idx(loc)])
 
     def slice(self, locs: Iterable[Loc] | Locality, filt: Callable[[Node], bool] | None = None) -> Iterable[Node]:
+        if isinstance(locs, Locality):
+            locs = locs.iter()
         nodes = tuple(self.get(loc) for loc in locs)
         return tuple(n for n in nodes if filt(n)) if filt is not None else nodes
 
     def drafts(self, locs: Iterable[Loc] | Locality | None = None, filt: None | Callable[[Node], bool] = None) -> Iterable[Node]:
-        nodes = tuple(self.get(loc) for loc in locs) if locs is not None else tuple(iter(self))
+        if isinstance(locs, Locality):
+            locs = locs.iter()
+        if locs is not None:
+            nodes = tuple(self.get(loc) for loc in locs)
+        else:
+            nodes = tuple(iter(self))
+
         drafts = tuple(filter(lambda n: n.cell.is_draft, nodes))
         return tuple(n for n in drafts if filt(n)) if filt is not None else drafts
 

@@ -1,31 +1,22 @@
-from collections import Counter
 import re
+from collections import Counter
+from itertools import chain as iterchain
 from typing import Iterable
 
-from board import DIGITS, POS9, Board, Cell, Loc, Locality, Node, Target
+from board import DIGITS, Board, Cell, Loc, Locality
+
+
+iterflat = iterchain.from_iterable
+
+
+def zoneflat(zones: Iterable[Locality]) -> Iterable[Loc]:
+    return iterflat(z.iter() for z in zones)
 
 
 def diff(b1: Board, b2: Board):
     new = Board()
     new.cells = tuple(Cell(set(c1) ^ set(c2)) for c1, c2 in zip(b1.cells, b2.cells))
     return new
-
-
-def iter_layer(board: Board, digit: int) -> Iterable[Target]:
-    return tuple(Target(node.loc, digit) for node in board if digit in node.cell)
-
-
-def iter_allzones():
-    for i in POS9:
-        yield Locality(i, ..., ...)
-    for i in POS9:
-        yield Locality(..., i, ...)
-    for i in POS9:
-        yield Locality(..., ..., i)
-
-
-def zerotransformer(_: Board, node: Node):
-    return node
 
 
 def parse(literal: str):
@@ -72,9 +63,9 @@ def validate(board: Board):
         return "INCOMPLETE"
 
     def fulfiled(zone: Locality):
-        return set(board.get(loc).cell.final for loc in zone) == DIGITS
+        return set(board.get(loc).cell.final for loc in zone.iter()) == DIGITS
 
-    if all(map(fulfiled, iter_allzones())):
+    if all(map(fulfiled, Locality.all())):
         return "SOLVED"
     else:
         return "BROKEN"

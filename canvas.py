@@ -1,7 +1,7 @@
-from itertools import combinations
+from typing import Iterable
 from ipycanvas import MultiCanvas, hold_canvas
 
-from board import Board, Loc, Target, MultiTarget
+from board import Board, Loc
 
 CANVAS_SIZE = 640
 PADDING = 4
@@ -146,50 +146,45 @@ class SudokuCanvas(MultiCanvas):
         canvas = self[2]
         canvas.clear()
 
-    def highlight_target(self, target: Target | MultiTarget, *, color: str = HIGHLIGHT_COLOR):
+    def highlight_segment(self, loc: Loc, seg: int, *, color: str = HIGHLIGHT_COLOR):
         canvas = self[2]
         x0, y0 = PADDING, PADDING
-        xc, yc = cell_xy(target.loc)
 
-        digs = target.digs if isinstance(target, MultiTarget) else [target.dig]
-        for dig in digs:
-            x, y = segm_xy(dig)
+        xc, yc = cell_xy(loc)
+        x, y = segm_xy(seg)
+        canvas.set_line_dash([])
+        canvas.fill_style = pick_color(color)
+        canvas.clear_rect(x0 + xc + x - HIGHLIGHT_R, y0 + yc + y - HIGHLIGHT_R, HIGHLIGHT_SIZE, HIGHLIGHT_SIZE)
+        canvas.fill_circle(x0 + xc + x, y0 + yc + y, HIGHLIGHT_R)
+
+    def highlight_segments(self, loc: Loc, segs: Iterable[int], *, color: str = HIGHLIGHT_COLOR):
+        canvas = self[2]
+        x0, y0 = PADDING, PADDING
+
+        xc, yc = cell_xy(loc)
+        for seg in segs:
+            x, y = segm_xy(seg)
             canvas.set_line_dash([])
             canvas.fill_style = pick_color(color)
             canvas.clear_rect(x0 + xc + x - HIGHLIGHT_R, y0 + yc + y - HIGHLIGHT_R, HIGHLIGHT_SIZE, HIGHLIGHT_SIZE)
             canvas.fill_circle(x0 + xc + x, y0 + yc + y, HIGHLIGHT_R)
 
-    def highlight_final(self, target: Target, *, color: str = HIGHLIGHT_COLOR):
+    def highlight_final(self, loc: Loc, seg: int, *, color: str = HIGHLIGHT_COLOR):
         canvas = self[2]
         x0, y0 = PADDING, PADDING
-        xc, yc = cell_xy(target.loc)
-        x, y = segm_xy(target.dig)
+
+        xc, yc = cell_xy(loc)
+        x, y = segm_xy(seg)
         canvas.set_line_dash([])
         canvas.fill_style = pick_color(color)
         canvas.fill_circle(x0 + xc + x, y0 + yc + y, FINAL_R)
 
-    def highlight_group(self, target: MultiTarget, *, color: str = HIGHLIGHT_COLOR):
+    def highlight_link(self, loc1: Loc, seg1: int, loc2: Loc, seg2: int, *, color: str = HIGHLIGHT_COLOR, style: str = "SOLID"):
         canvas = self[2]
         x0, y0 = PADDING, PADDING
-        xc, yc = cell_xy(target.loc)
-        canvas.set_line_dash([])
-        canvas.fill_style = pick_color(color)
-        for d1, d2 in combinations(target.digs, 2):
-            x1, y1 = segm_xy(d1)
-            x2, y2 = segm_xy(d2)
-            canvas.set_line_dash(DASHES["SOLID"])
-            canvas.line_width = GROUP_WIDTH
-            canvas.stroke_style = pick_color(color)
-            canvas.stroke_line(x0 + xc + x1, y0 + yc + y1, x0 + xc + x2, y0 + yc + y2)
 
-    def highlight_link(self, link: tuple[Target, Target], *, color: str = HIGHLIGHT_COLOR, style: str = "SOLID"):
-        canvas = self[2]
-        x0, y0 = PADDING, PADDING
-        t1, t2 = link
-
-        x1, y1 = targ_xy(t1.loc, t1.dig)
-        x2, y2 = targ_xy(t2.loc, t2.dig)
-
+        x1, y1 = targ_xy(loc1, seg1)
+        x2, y2 = targ_xy(loc2, seg2)
         canvas.set_line_dash(DASHES[style])
         canvas.line_width = LINK_WIDTH
         canvas.stroke_style = pick_color(color)
@@ -201,4 +196,4 @@ class SudokuCanvas(MultiCanvas):
         loc = xy_cell(x, y)
         xc, yc = cell_xy(loc)
         seg = xy_segm(int(x - xc), int(y - yc))
-        return Target(loc, seg)
+        return loc, seg

@@ -2,7 +2,8 @@ from typing import Any, Callable
 from collections.abc import Generator, AsyncGenerator
 from dataclasses import dataclass
 
-from board import Cell, Board, Target
+from board import Cell, Board
+from analytics import Target
 
 
 @dataclass
