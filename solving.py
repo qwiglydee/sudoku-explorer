@@ -1,6 +1,6 @@
-from collections.abc import Generator
+from typing import Any, Callable
+from collections.abc import Generator, AsyncGenerator
 from dataclasses import dataclass
-from typing import Any, AsyncGenerator, Callable
 
 from board import Cell, Board, Target
 
@@ -28,12 +28,14 @@ class Resolution:
 
 Resolving = Generator[Resolution]
 Resolver = Callable[[Board], Resolving]
+Solving = AsyncGenerator[tuple[Resolver, Resolution, Board]]
 
 
 async def orchestrator(initial: Board, *resolvers: Resolver) -> AsyncGenerator[Resolver, Board | None]:
-    """Orchestrating sequence of resolver based on their result
-    When nothing changed, turn moves to next resolver
-    When something changed, sequence resets
+    """Orchestrating resolvers based on their result
+    Yields resolvers in sequence
+    - when nothing changed, turn moves to next resolver
+    - when something changed, sequence resets
     """
     idx = 0
     lng = len(resolvers)
@@ -48,19 +50,18 @@ async def orchestrator(initial: Board, *resolvers: Resolver) -> AsyncGenerator[R
             idx = 0
 
 
-async def solver(initial: Board, orchestra: AsyncGenerator[Resolver, Board]) -> Board:
-    """Applies all resolutions from orchestra of resolvers"""
+async def solver(initial: Board, orchestra: AsyncGenerator[Resolver, Board]) -> Solving:
+    """Applies all resolutions from orchestra of resolvers
+    Yield intermediate results for inspecting
+    """
     resolver = await orchestra.asend(None)  # type: ignore that fucking caveat
 
     current = initial
     while True:
-        print("----", resolver.__name__)
         for resolution in resolver(current):
             current = resolution.apply(current)
-
+            yield resolver, resolution, current
         try:
             resolver = await orchestra.asend(current)
         except StopAsyncIteration:
             break
-
-    return current
