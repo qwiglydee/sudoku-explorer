@@ -54,11 +54,9 @@ async def solver(initial: Board, orchestra: AsyncGenerator[Resolver, Board]) -> 
 
     current = initial
     while True:
-        print("----", resolver.__name__, end=": ")
+        print("----", resolver.__name__)
         for resolution in resolver(current):
-            print(len(resolution.castaways), end=", ")
             current = resolution.apply(current)
-        print()
 
         try:
             resolver = await orchestra.asend(current)
