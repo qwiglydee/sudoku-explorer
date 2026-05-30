@@ -1,5 +1,7 @@
-from typing import Iterable
+import math
+from typing import Iterable, NamedTuple, Self
 from ipycanvas import MultiCanvas, hold_canvas
+from palette import pick_color
 
 from board import Board, Loc
 
@@ -27,65 +29,56 @@ DASHES = {
 }
 
 
-# matplotlib
-PALETTE_T10 = {
-    "blue": "#1f77b4",
-    "orange": "#ff7f0e",
-    "green": "#2ca02c",
-    "red": "#d62728",
-    "purple": "#9467bd",
-    "brown": "#8c564b",
-    "pink": "#e377c2",
-    "gray": "#7f7f7f",
-    "olive": "#bcbd22",
-    "cyan": "#17becf",
-}
-
-HIGHLIGHT_COLOR = PALETTE_T10["blue"]
+HIGHLIGHT_COLOR = pick_color("blue")
 
 
-def pick_color(color: str):
-    return PALETTE_T10.get(color, color)
+class XY(NamedTuple):
+    x: float
+    y: float
+
+    @classmethod
+    def mid(cls, p1: Self, p2: Self) -> Self:
+        return cls((p1.x + p2.x) / 2, (p1.y + p2.y) / 2)
+
+    @classmethod
+    def dist(cls, p1: Self, p2: Self) -> float:
+        return math.sqrt(p1.x * p2.x + p1.y * p2.y)
 
 
-def digit_rc(dig: int):
-    d0 = dig - 1
-    return d0 // 3, d0 % 3
+P0 = XY(PADDING, PADDING)
 
 
 def cell_xy(loc: Loc):
     """top-bot coords of a cell"""
-    return (loc.col - 1) * CELL_SIZE, (loc.row - 1) * CELL_SIZE
+    return XY((loc.col - 1) * CELL_SIZE, (loc.row - 1) * CELL_SIZE)
 
 
-def xy_cell(x: int, y: int) -> Loc:
-    return Loc(int(y / CELL_SIZE) + 1, int(x / CELL_SIZE) + 1)
+def xy_cell(p: XY) -> Loc:
+    return Loc(int(p.y / CELL_SIZE) + 1, int(p.x / CELL_SIZE) + 1)
 
 
-def segm_rc(dig: int):
+def segm_rc(seg: int):
     """sub-loc of a segment in a cell"""
-    d0 = dig - 1
+    d0 = seg - 1
     return d0 // 3, d0 % 3
 
 
-def segm_xy(dig: int):
+def segm_xy(seg: int):
     """coords of a segment in a cell"""
-    ri, ci = segm_rc(dig)
-    return (ci + 0.5) * SEGM_SIZE, (ri + 0.5) * SEGM_SIZE
+    r, c = segm_rc(seg)
+    return XY((c + 0.5) * SEGM_SIZE, (r + 0.5) * SEGM_SIZE)
 
 
-def xy_segm(x: int, y: int) -> int:
-    loc = xy_cell(x, y)
-    x0, y0 = cell_xy(loc)
-    ci = int(x / SEGM_SIZE)
-    ri = int(y / SEGM_SIZE)
-    return 1 + ri * 3 + ci
+def xy_segm(p: XY) -> int:
+    c = int(p.x / SEGM_SIZE)
+    r = int(p.y / SEGM_SIZE)
+    return 1 + r * 3 + c
 
 
-def targ_xy(loc: Loc, dig: int):
-    xc, yc = cell_xy(loc)
-    xi, yi = segm_xy(dig)
-    return xc + xi, yc + yi
+def targ_xy(loc: Loc, seg: int):
+    c = cell_xy(loc)
+    s = segm_xy(seg)
+    return XY(c.x + s.x, c.y + s.y)
 
 
 class SudokuCanvas(MultiCanvas):
@@ -94,30 +87,26 @@ class SudokuCanvas(MultiCanvas):
 
     def draw_grid(self):
         canvas = self[0]
-        x0, y0 = PADDING, PADDING
         size = CELL_SIZE * 9
 
         canvas.clear()
         with hold_canvas():
             canvas.stroke_style = "rgba(0, 0, 0, 0.25)"
             for i in range(1, 9):
-                yi = y0 + i * CELL_SIZE
-                xi = x0 + i * CELL_SIZE
-                canvas.stroke_line(x0, yi, x0 + size, yi)
-                canvas.stroke_line(xi, y0, xi, y0 + size)
+                c9 = XY(i * CELL_SIZE, i * CELL_SIZE)
+                canvas.stroke_line(P0.x, P0.x + c9.y, P0.x + size, P0.y + c9.y)
+                canvas.stroke_line(P0.x + c9.x, P0.y, P0.x + c9.x, P0.y + size)
             canvas.stroke_style = "rgba(0, 0, 0, 0.5)"
             for i in range(1, 3):
-                yi = y0 + i * CELL_SIZE * 3
-                canvas.stroke_line(x0, yi, x0 + size, yi)
-                xi = x0 + i * CELL_SIZE * 3
-                canvas.stroke_line(xi, y0, xi, y0 + size)
+                c3 = XY(i * CELL_SIZE * 3, i * CELL_SIZE * 3)
+                canvas.stroke_line(P0.x, P0.y + c3.y, P0.x + size, P0.y + c3.y)
+                canvas.stroke_line(P0.x + c3.x, P0.y, P0.x + c3.x, P0.y + size)
             canvas.line_width = 3
             canvas.stroke_style = "rgba(0, 0, 0, 1.0)"
-            canvas.stroke_rect(x0, y0, size, size)
+            canvas.stroke_rect(P0.x, P0.y, size, size)
 
     def draw_board(self, board: Board):
         canvas = self[1]
-        x0, y0 = PADDING, PADDING
         canvas.text_baseline = "middle"
         canvas.text_align = "center"
 
@@ -127,20 +116,21 @@ class SudokuCanvas(MultiCanvas):
                 if node.cell.is_empty:
                     continue
 
-                xc, yc = cell_xy(node.loc)
+                c = cell_xy(node.loc)
                 if node.cell.is_final:
                     value = node.cell.final
                     canvas.font = FONT2
                     canvas.fill_style = FONT2_COLOR
-                    canvas.fill_text(str(value), x0 + xc + 0.5 * CELL_SIZE, x0 + yc + 0.5 * CELL_SIZE)
+                    canvas.fill_text(str(value), P0.x + c.x + 0.5 * CELL_SIZE, P0.x + c.y + 0.5 * CELL_SIZE)
                 else:
                     for dig in range(1, 10):
                         if dig not in node.cell:
                             continue
-                        x, y = segm_xy(dig)
+                        s = segm_xy(dig)
                         canvas.font = FONT1
                         canvas.fill_style = FONT1_COLOR
-                        canvas.fill_text(str(dig), x0 + xc + x, y0 + yc + y)
+                        # NB: text is centered
+                        canvas.fill_text(str(dig), P0.x + c.x + s.x, P0.y + c.y + s.y)
 
     def clear_highlights(self):
         canvas = self[2]
@@ -148,52 +138,36 @@ class SudokuCanvas(MultiCanvas):
 
     def highlight_segment(self, loc: Loc, seg: int, *, color: str = HIGHLIGHT_COLOR):
         canvas = self[2]
-        x0, y0 = PADDING, PADDING
-
-        xc, yc = cell_xy(loc)
-        x, y = segm_xy(seg)
+        c = cell_xy(loc)
+        s = segm_xy(seg)
         canvas.set_line_dash([])
         canvas.fill_style = pick_color(color)
-        canvas.clear_rect(x0 + xc + x - HIGHLIGHT_R, y0 + yc + y - HIGHLIGHT_R, HIGHLIGHT_SIZE, HIGHLIGHT_SIZE)
-        canvas.fill_circle(x0 + xc + x, y0 + yc + y, HIGHLIGHT_R)
+        canvas.clear_rect(P0.x + c.x + s.x - HIGHLIGHT_R, P0.y + c.y + s.y - HIGHLIGHT_R, HIGHLIGHT_SIZE, HIGHLIGHT_SIZE)
+        canvas.fill_circle(P0.x + c.x + s.x, P0.y + c.y + s.y, HIGHLIGHT_R)
 
     def highlight_segments(self, loc: Loc, segs: Iterable[int], *, color: str = HIGHLIGHT_COLOR):
         canvas = self[2]
-        x0, y0 = PADDING, PADDING
-
-        xc, yc = cell_xy(loc)
+        c = cell_xy(loc)
         for seg in segs:
-            x, y = segm_xy(seg)
+            s = segm_xy(seg)
             canvas.set_line_dash([])
             canvas.fill_style = pick_color(color)
-            canvas.clear_rect(x0 + xc + x - HIGHLIGHT_R, y0 + yc + y - HIGHLIGHT_R, HIGHLIGHT_SIZE, HIGHLIGHT_SIZE)
-            canvas.fill_circle(x0 + xc + x, y0 + yc + y, HIGHLIGHT_R)
+            canvas.clear_rect(P0.x + c.x + s.x - HIGHLIGHT_R, P0.y + c.y + s.y - HIGHLIGHT_R, HIGHLIGHT_SIZE, HIGHLIGHT_SIZE)
+            canvas.fill_circle(P0.x + c.x + s.x, P0.y + c.y + s.y, HIGHLIGHT_R)
 
     def highlight_final(self, loc: Loc, seg: int, *, color: str = HIGHLIGHT_COLOR):
         canvas = self[2]
-        x0, y0 = PADDING, PADDING
-
-        xc, yc = cell_xy(loc)
-        x, y = segm_xy(seg)
+        c = cell_xy(loc)
+        s = segm_xy(seg)
         canvas.set_line_dash([])
         canvas.fill_style = pick_color(color)
-        canvas.fill_circle(x0 + xc + x, y0 + yc + y, FINAL_R)
+        canvas.fill_circle(P0.x + c.x + s.x, P0.y + c.y + s.y, FINAL_R)
 
     def highlight_link(self, loc1: Loc, seg1: int, loc2: Loc, seg2: int, *, color: str = HIGHLIGHT_COLOR, style: str = "SOLID"):
         canvas = self[2]
-        x0, y0 = PADDING, PADDING
-
-        x1, y1 = targ_xy(loc1, seg1)
-        x2, y2 = targ_xy(loc2, seg2)
+        t1 = targ_xy(loc1, seg1)
+        t2 = targ_xy(loc2, seg2)
         canvas.set_line_dash(DASHES[style])
         canvas.line_width = LINK_WIDTH
         canvas.stroke_style = pick_color(color)
-        canvas.stroke_line(x0 + x1, y0 + y1, x0 + x2, y0 + y2)
-
-    def map_target(self, x: int, y: int):
-        x -= PADDING
-        y -= PADDING
-        loc = xy_cell(x, y)
-        xc, yc = cell_xy(loc)
-        seg = xy_segm(int(x - xc), int(y - yc))
-        return loc, seg
+        canvas.stroke_line(P0.x + t1.x, P0.y + t1.y, P0.x + t2.x, P0.y + t2.y)
