@@ -1,16 +1,10 @@
 import re
 from collections import Counter
 from itertools import chain as iterchain
-from typing import Iterable
 
-from board import DIGITS, Board, Cell, Loc, Locality
-
+from board import Board, Cell, Loc
 
 iterflat = iterchain.from_iterable
-
-
-def zoneflat(zones: Iterable[Locality]) -> Iterable[Loc]:
-    return iterflat(z.iter() for z in zones)
 
 
 def diff(b1: Board, b2: Board):
@@ -56,16 +50,3 @@ def bprint(board: Board):
 
 def countfinals(board: Board) -> Counter:
     return Counter(c.final for c in board.cells if c.is_final)
-
-
-def validate(board: Board):
-    if sum(c.is_draft for c in board.cells) > 0:
-        return "INCOMPLETE"
-
-    def fulfiled(zone: Locality):
-        return set(board.get(loc).cell.final for loc in zone.iter()) == DIGITS
-
-    if all(map(fulfiled, Locality.all())):
-        return "SOLVED"
-    else:
-        return "BROKEN"
