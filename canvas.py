@@ -1,9 +1,11 @@
 import math
+import random
 from typing import Iterable, NamedTuple, Self
-from ipycanvas import MultiCanvas, hold_canvas
-from palette import pick_color
+
+from ipycanvas import Canvas, MultiCanvas, hold_canvas
 
 from board import Board, Loc
+from palette import pick_color
 
 CANVAS_SIZE = 640
 PADDING = 4
@@ -11,21 +13,20 @@ CELL_SIZE = (640 - PADDING * 2) / 9
 SEGM_SIZE = CELL_SIZE / 3
 FONT1_SIZE = 12
 FONT1 = f"{FONT1_SIZE}px sans-serif"
-FONT1_COLOR = "#000"
 FONT2_SIZE = 32
 FONT2 = f"{FONT2_SIZE}px sans-serif"
-FONT2_COLOR = "#AAA"
+FONT_COLOR = "#000000"
+BG_COLOR = "#808080"
 
-HIGHLIGHT_SIZE = CELL_SIZE / 3 - 4
-HIGHLIGHT_R = HIGHLIGHT_SIZE / 2
-FINAL_R = HIGHLIGHT_R + 3
+HIGHLIGHT_SIZE = CELL_SIZE / 3
+HIGHLIGHT_R = HIGHLIGHT_SIZE / 2 - 2
 GROUP_WIDTH = 6
 LINK_WIDTH = 4
 
 DASHES = {
     "SOLID": [],
     "HARD": [],
-    "SOFT": [LINK_WIDTH * 2, LINK_WIDTH * 0.5],
+    "SOFT": [LINK_WIDTH * 2, LINK_WIDTH],
 }
 
 
@@ -41,8 +42,16 @@ class XY(NamedTuple):
         return cls((p1.x + p2.x) / 2, (p1.y + p2.y) / 2)
 
     @classmethod
+    def add(cls, p1: Self, p2: Self) -> Self:
+        return cls(p1.x + p2.x, p1.y + p2.y)
+
+    @classmethod
     def dist(cls, p1: Self, p2: Self) -> float:
-        return math.sqrt(p1.x * p2.x + p1.y * p2.y)
+        v = XY(p2.x - p1.x, p2.y - p1.y)
+        return math.sqrt(v.x * v.x + v.y * v.y)
+
+
+XYs = tuple[XY, ...]
 
 
 P0 = XY(PADDING, PADDING)
@@ -84,6 +93,21 @@ def targ_xy(loc: Loc, seg: int):
 class SudokuCanvas(MultiCanvas):
     def __init__(self):
         super().__init__(3, width=CANVAS_SIZE, height=CANVAS_SIZE)
+        self.on_client_ready(self.setup)
+
+    def setup(self):
+        board_cnv = self[1]
+        board_cnv.text_baseline = "middle"
+        board_cnv.text_align = "center"
+
+        hlight_cnv = self[2]
+        hlight_cnv.font = FONT1
+
+        hlight_cnv.text_baseline = "middle"
+        hlight_cnv.text_align = "center"
+        hlight_cnv.global_alpha = 0.625
+
+        self.draw_grid()
 
     def draw_grid(self):
         canvas = self[0]
@@ -91,6 +115,9 @@ class SudokuCanvas(MultiCanvas):
 
         canvas.clear()
         with hold_canvas():
+            canvas.fill_style = BG_COLOR
+            canvas.fill_rect(P0.x, P0.y, size, size)
+
             canvas.stroke_style = "rgba(0, 0, 0, 0.25)"
             for i in range(1, 9):
                 c9 = XY(i * CELL_SIZE, i * CELL_SIZE)
@@ -107,8 +134,6 @@ class SudokuCanvas(MultiCanvas):
 
     def draw_board(self, board: Board):
         canvas = self[1]
-        canvas.text_baseline = "middle"
-        canvas.text_align = "center"
 
         canvas.clear()
         with hold_canvas():
@@ -120,7 +145,7 @@ class SudokuCanvas(MultiCanvas):
                 if node.cell.is_final:
                     value = node.cell.final
                     canvas.font = FONT2
-                    canvas.fill_style = FONT2_COLOR
+                    canvas.fill_style = FONT_COLOR
                     canvas.fill_text(str(value), P0.x + c.x + 0.5 * CELL_SIZE, P0.x + c.y + 0.5 * CELL_SIZE)
                 else:
                     for dig in range(1, 10):
@@ -128,9 +153,16 @@ class SudokuCanvas(MultiCanvas):
                             continue
                         s = segm_xy(dig)
                         canvas.font = FONT1
-                        canvas.fill_style = FONT1_COLOR
-                        # NB: text is centered
+                        canvas.fill_style = FONT_COLOR
                         canvas.fill_text(str(dig), P0.x + c.x + s.x, P0.y + c.y + s.y)
+
+    def highlight_digit(self, loc: Loc, seg: int, text: str):
+        canvas = self[2]
+        c = cell_xy(loc)
+        s = segm_xy(seg)
+        canvas.fill_style = FONT_COLOR
+        # NB: text is centered
+        canvas.fill_text(text, P0.x + c.x + s.x, P0.y + c.y + s.y)
 
     def clear_highlights(self):
         canvas = self[2]
@@ -155,19 +187,60 @@ class SudokuCanvas(MultiCanvas):
             canvas.clear_rect(P0.x + c.x + s.x - HIGHLIGHT_R, P0.y + c.y + s.y - HIGHLIGHT_R, HIGHLIGHT_SIZE, HIGHLIGHT_SIZE)
             canvas.fill_circle(P0.x + c.x + s.x, P0.y + c.y + s.y, HIGHLIGHT_R)
 
-    def highlight_final(self, loc: Loc, seg: int, *, color: str = HIGHLIGHT_COLOR):
-        canvas = self[2]
-        c = cell_xy(loc)
-        s = segm_xy(seg)
-        canvas.set_line_dash([])
-        canvas.fill_style = pick_color(color)
-        canvas.fill_circle(P0.x + c.x + s.x, P0.y + c.y + s.y, FINAL_R)
-
     def highlight_link(self, loc1: Loc, seg1: int, loc2: Loc, seg2: int, *, color: str = HIGHLIGHT_COLOR, style: str = "SOLID"):
         canvas = self[2]
-        t1 = targ_xy(loc1, seg1)
-        t2 = targ_xy(loc2, seg2)
+        t1 = XY.add(P0, targ_xy(loc1, seg1))
+        t2 = XY.add(P0, targ_xy(loc2, seg2))
         canvas.set_line_dash(DASHES[style])
         canvas.line_width = LINK_WIDTH
         canvas.stroke_style = pick_color(color)
-        canvas.stroke_line(P0.x + t1.x, P0.y + t1.y, P0.x + t2.x, P0.y + t2.y)
+
+        wobbling = SEGM_SIZE if loc1 == loc2 else CELL_SIZE / 2
+
+        if style == "HARD":
+            points = tuple(split_line(t1, t2, n=2))
+            points = tuple(jig_line(points, wobbling))
+            stroke_quadsmooth_path(canvas, points)
+        elif style == "SOFT":
+            n = max(2, 2 * round(XY.dist(t1, t2) / CELL_SIZE))
+            points = tuple(split_line(t1, t2, n))
+            points = tuple(jig_line(points, wobbling / 2))
+            stroke_quadsmooth_path(canvas, points)
+        else:
+            canvas.stroke_line(t1.x, t1.y, t2.x, t2.y)
+
+
+def split_line(p1: XY, p2: XY, n: int) -> Iterable[XY]:
+    """Split line into n segments"""
+    dx = (p2.x - p1.x) / n
+    dy = (p2.y - p1.y) / n
+    yield p1
+    for i in range(1, n):
+        yield XY(p1.x + dx * i, p1.y + dy * i)
+    yield p2
+
+
+def jig_line(points: XYs, maxoffset: float) -> Iterable[XY]:
+    """Shift internal points to ±offset perpendicular to main line"""
+
+    lng = XY.dist(points[0], points[-1])
+    dir = XY((points[-1].x - points[0].x) / lng, (points[-1].y - points[0].y) / lng)
+    tng = XY(-dir.y, dir.x)
+
+    yield points[0]
+    for p in points[1:-1]:
+        offset = random.uniform(-maxoffset, +maxoffset)
+        yield XY(p.x + tng.x * offset, p.y + tng.y * offset)
+    yield points[-1]
+
+
+def stroke_quadsmooth_path(canvas: Canvas, points: XYs):
+    """Stroking through midpoints using original points as controls"""
+    midpoints = [XY.mid(points[i], points[i + 1]) for i in range(len(points) - 1)]
+    canvas.begin_path()
+    canvas.move_to(points[0].x, points[0].y)
+    canvas.line_to(midpoints[0].x, midpoints[0].y)
+    for p, m in zip(points[1:], midpoints[1:]):
+        canvas.quadratic_curve_to(p.x, p.y, m.x, m.y)
+    canvas.line_to(points[-1].x, points[-1].y)
+    canvas.stroke()
