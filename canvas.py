@@ -20,8 +20,7 @@ BG_COLOR = "#808080"
 
 HIGHLIGHT_SIZE = CELL_SIZE / 3
 HIGHLIGHT_R = HIGHLIGHT_SIZE / 2 - 2
-GROUP_WIDTH = 6
-LINK_WIDTH = 4
+LINK_WIDTH = 6
 
 DASHES = {
     "SOLID": [],
@@ -195,16 +194,16 @@ class SudokuCanvas(MultiCanvas):
         canvas.line_width = LINK_WIDTH
         canvas.stroke_style = pick_color(color)
 
-        wobbling = SEGM_SIZE if loc1 == loc2 else CELL_SIZE / 2
+        length = max(1, math.ceil(XY.dist(t1, t2) / CELL_SIZE))
+        wobbling = CELL_SIZE * length / 18
 
         if style == "HARD":
-            points = tuple(split_line(t1, t2, n=2))
+            points = tuple(split_line(t1, t2, n=3))
             points = tuple(jig_line(points, wobbling))
             stroke_quadsmooth_path(canvas, points)
         elif style == "SOFT":
-            n = max(2, 2 * round(XY.dist(t1, t2) / CELL_SIZE))
-            points = tuple(split_line(t1, t2, n))
-            points = tuple(jig_line(points, wobbling / 2))
+            points = tuple(split_line(t1, t2, n=2 * length))
+            points = tuple(jig_line(points, wobbling))
             stroke_quadsmooth_path(canvas, points)
         else:
             canvas.stroke_line(t1.x, t1.y, t2.x, t2.y)

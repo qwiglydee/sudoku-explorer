@@ -197,19 +197,19 @@ class Link(tuple[Target, Target]):
         return f"{self.__class__.__name__}(({self[0]!r}, {self[1]!r},))"
 
     def __str__(self):
-        return f"{self[0]}{self.CHAR}{self[1]}"
+        return f"({self[0]} {self.CHAR} {self[1]})"
 
 
 class HLink(Link):
     """Hard link, XOR relation"""
 
-    CHAR = "⟺"
+    CHAR = "⊻"
 
 
 class SLink(Link):
     """Soft link, NAND relation"""
 
-    CHAR = "⟷"
+    CHAR = "⊼"
 
 
 class Chain(tuple[Link, ...]):
@@ -250,7 +250,13 @@ class Chain(tuple[Link, ...]):
         return hash(frozenset(self))
 
     def __str__(self):
-        return "".join((str(self[0][0]), *(f"{lnk.CHAR}{lnk[1]}" for lnk in self[1:])))
+        def strtail(lnk):
+            return f" {lnk.CHAR} {lnk[1]}"
+
+        if self.is_loop:
+            return "..." + reduce(lambda a, lnk: a + strtail(lnk), self[:-1], str(self[0][0])) + "..."
+        else:
+            return reduce(lambda a, lnk: a + strtail(lnk), self, str(self[0][0]))
 
 
 def validate(board: Board):
