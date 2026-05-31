@@ -1,8 +1,9 @@
 import re
 from collections import Counter
 from itertools import chain as iterchain
+from typing import Iterable
 
-from board import Board, Cell, Loc
+from board import Board, Cell, Loc, Node
 
 iterflat = iterchain.from_iterable
 
@@ -48,5 +49,9 @@ def bprint(board: Board):
             print("───┼───┼───╫───┼───┼───╫───┼───┼───")
 
 
-def countfinals(board: Board) -> Counter:
-    return Counter(c.final for c in board.cells if c.is_final)
+def count_finals(nodes: Iterable[Node]) -> Counter:
+    return Counter(n.cell.final for n in filter(Node.is_final, nodes))
+
+
+def count_digits(nodes: Iterable[Node]):
+    return Counter(iterflat(n.cell for n in nodes))

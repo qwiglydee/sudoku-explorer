@@ -31,7 +31,7 @@ WIDTHS = {
 DASHES = {
     "SOLID": [],
     "HARD": [],
-    "SOFT": [12, 6],
+    "SOFT": [3, 3],
 }
 
 
@@ -194,15 +194,14 @@ class SudokuCanvas(MultiCanvas):
         canvas.stroke_style = pick_color(color)
 
         length = max(1, math.ceil(XY.dist(t1, t2) / CELL_SIZE))
-        wobble = CELL_SIZE * length / 36
 
         if style == "HARD":
-            points = tuple(split_line(t1, t2, n=max(1, length // 2)))
-            points = tuple(jig_line(points, wobble))
+            points = tuple(split_line(t1, t2, n=1 + length // 2))
+            points = tuple(jig_line(points, SEGM_SIZE))
             stroke_quadsmooth_path(canvas, points)
         elif style == "SOFT":
             points = tuple(split_line(t1, t2, n=2 * length))
-            points = tuple(jig_line(points, wobble))
+            points = tuple(jig_line(points, SEGM_SIZE))
             stroke_quadsmooth_path(canvas, points)
         else:
             canvas.stroke_line(t1.x, t1.y, t2.x, t2.y)

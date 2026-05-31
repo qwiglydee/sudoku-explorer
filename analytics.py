@@ -123,10 +123,6 @@ class Locality(NamedTuple):
         for i in POS9:
             yield cls(None, None, i)
 
-    def neighborhood(self, board: Board) -> Iterable[Node]:
-        """Get corresponding nodes from board"""
-        return board.slice(self.iter())
-
     def __str__(self):
         bstr = f"b{self.blk}" if self.blk else "…"
         rstr = f"r{self.row}" if self.row else "…"
@@ -153,6 +149,14 @@ def all_visible(l1: Loc, l2: Loc) -> Iterable[Loc]:
     else:
         # intersection of their arounds
         return set(zoneflat(Locality.around(l1))) & set(zoneflat(Locality.around(l2)))
+
+
+def neighborhood(loc: Locality, nodes: Board | Iterable[Node]) -> Iterable[Node]:
+    if isinstance(nodes, Board):
+        return nodes.slice(loc.iter())
+    else:
+        locs = loc.locs()
+        return filter(lambda n: n.loc in locs, nodes)
 
 
 class Target(NamedTuple):
@@ -294,8 +298,8 @@ def validate(board: Board):
         return "INCOMPLETE"
 
     def fulfiled(zone: Locality):
-        neighborhood = tuple(zone.neighborhood(board))
-        return all(Node.is_final(n) for n in neighborhood) and set(n.cell.final for n in neighborhood) == DIGITS
+        finalborhood = tuple(filter(Node.is_final, neighborhood(zone, board)))
+        return set(n.cell.final for n in finalborhood) == DIGITS
 
     if all(map(fulfiled, Locality.all())):
         return "SOLVED"
