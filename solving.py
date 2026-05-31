@@ -8,23 +8,25 @@ from analytics import Target
 
 @dataclass
 class Resolution:
-    castaways: set[Target]
-    finals: set[Target]
+    castaways: set[Target] | None = None
+    finals: set[Target] | None = None
 
     def apply(self, current: Board) -> Board:
         """Removing castaways and isolating all finals"""
 
-        for trg in self.castaways:
-            orig = current.get(trg.loc)
-            current = Board.replace(current, trg.loc, Cell(orig.cell - {trg.dig}))
+        if self.castaways:
+            for trg in self.castaways:
+                orig = current.get(trg.loc)
+                current = Board.replace(current, trg.loc, Cell(orig.cell - {trg.dig}))
 
-        for trg in self.finals:
-            current = Board.replace(current, trg.loc, Cell({trg.dig}))
+        if self.finals:
+            for trg in self.finals:
+                current = Board.replace(current, trg.loc, Cell({trg.dig}))
 
         return current
 
     # for inspecting
-    highlights: dict[str, set[Any]] | None = None
+    highlights: dict[str, Any] | None = None
 
 
 Resolving = Generator[Resolution]

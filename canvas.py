@@ -90,18 +90,21 @@ def targ_xy(loc: Loc, seg: int):
 
 
 class SudokuCanvas(MultiCanvas):
+    GRID_LAYER = 0
+    DIGITS_LAYER = 2
+    HLIGHT_LAYER = 1
+
     def __init__(self):
         super().__init__(3, width=CANVAS_SIZE, height=CANVAS_SIZE)
         self.on_client_ready(self.setup)
 
     def setup(self):
-        board_cnv = self[1]
-        board_cnv.text_baseline = "middle"
-        board_cnv.text_align = "center"
+        digits_cnv = self[self.DIGITS_LAYER]
+        digits_cnv.text_baseline = "middle"
+        digits_cnv.text_align = "center"
 
-        hlight_cnv = self[2]
+        hlight_cnv = self[self.HLIGHT_LAYER]
         hlight_cnv.font = FONT1
-
         hlight_cnv.text_baseline = "middle"
         hlight_cnv.text_align = "center"
         hlight_cnv.global_alpha = 0.625
@@ -109,7 +112,7 @@ class SudokuCanvas(MultiCanvas):
         self.draw_grid()
 
     def draw_grid(self):
-        canvas = self[0]
+        canvas = self[self.GRID_LAYER]
         size = CELL_SIZE * 9
 
         canvas.clear()
@@ -132,7 +135,7 @@ class SudokuCanvas(MultiCanvas):
             canvas.stroke_rect(P0.x, P0.y, size, size)
 
     def draw_board(self, board: Board):
-        canvas = self[1]
+        canvas = self[self.DIGITS_LAYER]
 
         canvas.clear()
         with hold_canvas():
@@ -156,7 +159,7 @@ class SudokuCanvas(MultiCanvas):
                         canvas.fill_text(str(dig), P0.x + c.x + s.x, P0.y + c.y + s.y)
 
     def highlight_digit(self, loc: Loc, seg: int, text: str):
-        canvas = self[2]
+        canvas = self[self.HLIGHT_LAYER]
         c = cell_xy(loc)
         s = segm_xy(seg)
         canvas.fill_style = FONT_COLOR
@@ -164,11 +167,11 @@ class SudokuCanvas(MultiCanvas):
         canvas.fill_text(text, P0.x + c.x + s.x, P0.y + c.y + s.y)
 
     def clear_highlights(self):
-        canvas = self[2]
+        canvas = self[self.HLIGHT_LAYER]
         canvas.clear()
 
     def highlight_segment(self, loc: Loc, seg: int, *, color: str = HIGHLIGHT_COLOR):
-        canvas = self[2]
+        canvas = self[self.HLIGHT_LAYER]
         c = cell_xy(loc)
         s = segm_xy(seg)
         canvas.set_line_dash([])
@@ -177,7 +180,7 @@ class SudokuCanvas(MultiCanvas):
         canvas.fill_circle(P0.x + c.x + s.x, P0.y + c.y + s.y, HIGHLIGHT_R)
 
     def highlight_segments(self, loc: Loc, segs: Iterable[int], *, color: str = HIGHLIGHT_COLOR):
-        canvas = self[2]
+        canvas = self[self.HLIGHT_LAYER]
         c = cell_xy(loc)
         for seg in segs:
             s = segm_xy(seg)
@@ -187,7 +190,7 @@ class SudokuCanvas(MultiCanvas):
             canvas.fill_circle(P0.x + c.x + s.x, P0.y + c.y + s.y, HIGHLIGHT_R)
 
     def highlight_link(self, loc1: Loc, seg1: int, loc2: Loc, seg2: int, *, color: str = HIGHLIGHT_COLOR, style: str = "SOLID"):
-        canvas = self[2]
+        canvas = self[self.HLIGHT_LAYER]
         t1 = XY.add(P0, targ_xy(loc1, seg1))
         t2 = XY.add(P0, targ_xy(loc2, seg2))
         canvas.set_line_dash(DASHES[style])
@@ -195,15 +198,15 @@ class SudokuCanvas(MultiCanvas):
         canvas.stroke_style = pick_color(color)
 
         length = max(1, math.ceil(XY.dist(t1, t2) / CELL_SIZE))
-        wobbling = CELL_SIZE * length / 18
+        wobble = CELL_SIZE * length / 36
 
         if style == "HARD":
-            points = tuple(split_line(t1, t2, n=3))
-            points = tuple(jig_line(points, wobbling))
+            points = tuple(split_line(t1, t2, n=length // 3))
+            points = tuple(jig_line(points, wobble))
             stroke_quadsmooth_path(canvas, points)
         elif style == "SOFT":
             points = tuple(split_line(t1, t2, n=2 * length))
-            points = tuple(jig_line(points, wobbling))
+            points = tuple(jig_line(points, wobble))
             stroke_quadsmooth_path(canvas, points)
         else:
             canvas.stroke_line(t1.x, t1.y, t2.x, t2.y)

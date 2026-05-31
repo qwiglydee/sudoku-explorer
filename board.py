@@ -115,9 +115,8 @@ class Board:
     def get(self, loc: Loc) -> Node:
         return Node(loc, self.cells[self.__idx(loc)])
 
-    def slice(self, locs: Iterable[Loc], filt: Callable[[Node], bool] | None = None) -> Iterable[Node]:
-        nodes = tuple(self.get(loc) for loc in locs)
-        return tuple(n for n in nodes if filt(n)) if filt is not None else nodes
+    def slice(self, locs: Iterable[Loc]) -> Iterable[Node]:
+        return (self.get(loc) for loc in locs)
 
     def __getitem__(self, loc: Loc | Iterable[Loc]) -> Node | Iterable[Node]:
         if isinstance(loc, Loc):

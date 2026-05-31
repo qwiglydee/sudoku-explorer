@@ -7,6 +7,10 @@ from board import DIGITS, POS9, Board, Loc, Node
 iterflat = iterchain.from_iterable
 
 
+def Node_has(dig: int):
+    return lambda n: dig in n.cell
+
+
 class Locality(NamedTuple):
     """Locality of a block, row, col, cell or their intersections"""
 
@@ -42,12 +46,6 @@ class Locality(NamedTuple):
 
     def locs(self) -> set[Loc]:
         return set(self.iter())
-
-    @classmethod
-    def adjacent(cls, loc1, loc2) -> bool:
-        """intersectable = some of them has None in c"""
-        # (..., ..., ...) = invalid
-        return not (loc1.blk and loc2.blk) and not (loc1.row and loc2.row) and not (loc1.col and loc2.col)
 
     def __contains__(self, loc: Loc) -> bool:
         """Chack if location is in the locality"""
@@ -88,7 +86,12 @@ class Locality(NamedTuple):
 
     @classmethod
     def intersect(cls, loc1: Self, loc2: Self) -> Self:
-        # assert adjacent
+        def axis_fit(a1, a2):
+            return a1 == a2 or a1 is None or a2 is None
+
+        assert axis_fit(loc1.blk, loc2.blk)
+        assert axis_fit(loc1.row, loc2.row)
+        assert axis_fit(loc1.col, loc2.col)
         return cls(loc1.blk or loc2.blk, loc1.row or loc2.row, loc1.col or loc2.col)
 
     def __and__(self, other):
@@ -121,14 +124,31 @@ class Locality(NamedTuple):
         return board.slice(self.iter())
 
     def __str__(self):
-        if not self.blk and not self.row and not self.col:
-            return "@..."
+        bstr = f"b{self.blk}" if self.blk else "…"
+        rstr = f"r{self.row}" if self.row else "…"
+        cstr = f"c{self.col}" if self.col else "…"
+        return f"{{{bstr}{rstr}{cstr}}}"
 
-        bstr = f"b{self.blk}" if self.blk else ""
-        rstr = f"b{self.row}" if self.row else ""
-        cstr = f"b{self.col}" if self.col else ""
 
-        return f"@{bstr}{rstr}{cstr}"
+def zoneflat(zones: Iterable[Locality]) -> Iterable[Loc]:
+    return iterflat(z.iter() for z in zones)
+
+
+def are_visible(loc1: Loc | Locality, loc2: Loc | Locality) -> bool:
+    """If they mutually visible"""
+    return loc1.blk == loc2.blk or loc1.row == loc2.row or loc1.col == loc2.col
+
+
+def all_visible(l1: Loc, l2: Loc) -> Iterable[Loc]:
+    """All locs visible from both the locs"""
+
+    shared = set(Locality.shared(l1, l2))
+    if shared:
+        # all from shared localities
+        return set(zoneflat(shared))
+    else:
+        # intersection of their arounds
+        return set(zoneflat(Locality.around(l1))) & set(zoneflat(Locality.around(l2)))
 
 
 class Target(NamedTuple):
@@ -137,44 +157,38 @@ class Target(NamedTuple):
     loc: Loc
     dig: int
 
-    @classmethod
-    def check_nand(cls, t1: Self, t2: Self) -> bool:
-        l1, l2 = t1.loc, t2.loc
-        if t1.dig == t2.dig:
-            return l1.blk == l2.blk or l1.row == l2.row or l1.col == l2.col
-        else:
-            return l1 == l2
-
-    @classmethod
-    def check_xor(cls, board: Board, t1: Self, t2: Self) -> bool:
-        l1, l2 = t1.loc, t2.loc
-        if t1.dig == t2.dig:
-
-            def occupied(zone):
-                return tuple(filter(lambda n: t1.dig in n.cell, zone.neighborhood(board)))
-
-            # some shared zone has only 2 cell with the digit
-            return any(len(occupied(zone)) == 2 for zone in Locality.shared(l1, l2))
-        else:
-            # different digits in a single cell
-            return l1 == l2 and len(board.get(l1).cell) == 2
+    is_singular = True
 
     def __str__(self):
-        return f"{self.dig}{self.loc}"
-
-    @classmethod
-    def iter_node(cls, node: Node) -> Iterable[Self]:
-        """target all digits of a node"""
-        return (cls(node.loc, d) for d in node.cell)
+        return f"{self.dig}@{self.loc}"
 
 
 # TODO: replace Target with proper API
-# class MultiTarget(NamedTuple):
-#     loc: Locality
-#     digs: frozenset[int]
-#     def __str__(self):
-#         joined = "".join(map(str, self.digs))
-#         return f"{joined}{self.loc}"
+class MultiTarget(NamedTuple):
+    loc: Locality
+    digs: frozenset[int]
+
+    @property
+    def is_singular(self) -> bool:
+        return len(self.digs) == 1
+
+    @property
+    def dig(self) -> int:
+        assert self.is_singular
+        (d,) = self.digs
+        return d
+
+    def __str__(self):
+        joined = "".join(map(str, self.digs))
+        return f"{joined}@{self.loc}"
+
+
+def are_nandable(t1: Target | MultiTarget, t2: Target | MultiTarget):
+    """If they can form a soft link"""
+    if t1.is_singular and t2.is_singular and t1.dig == t2.dig:
+        return are_visible(t1.loc, t2.loc)
+    else:
+        return t1.loc == t2.loc
 
 
 class Link(tuple[Target, Target]):
@@ -201,14 +215,10 @@ class Link(tuple[Target, Target]):
 
 
 class HLink(Link):
-    """Hard link, XOR relation"""
-
     CHAR = "⊻"
 
 
 class SLink(Link):
-    """Soft link, NAND relation"""
-
     CHAR = "⊼"
 
 
@@ -253,37 +263,23 @@ class Chain(tuple[Link, ...]):
         def strtail(lnk):
             return f" {lnk.CHAR} {lnk[1]}"
 
+        joined = reduce(lambda a, lnk: a + strtail(lnk), self, str(self[0][0]))
+
         if self.is_loop:
-            return "..." + reduce(lambda a, lnk: a + strtail(lnk), self[:-1], str(self[0][0])) + "..."
+            return f"(…{joined}…)"
         else:
-            return reduce(lambda a, lnk: a + strtail(lnk), self, str(self[0][0]))
+            return f"({joined})"
 
 
 def validate(board: Board):
-    if sum(c.is_draft for c in board.cells) > 0:
+    if not all(Node.is_final(n) for n in board):
         return "INCOMPLETE"
 
     def fulfiled(zone: Locality):
-        return set(board.get(loc).cell.final for loc in zone.iter()) == DIGITS
+        neighborhood = tuple(zone.neighborhood(board))
+        return all(Node.is_final(n) for n in neighborhood) and set(n.cell.final for n in neighborhood) == DIGITS
 
     if all(map(fulfiled, Locality.all())):
         return "SOLVED"
     else:
         return "BROKEN"
-
-
-def zoneflat(zones: Iterable[Locality]) -> Iterable[Loc]:
-    return iterflat(z.iter() for z in zones)
-
-
-def visible_locs(l1: Loc, l2: Loc) -> Iterable[Loc]:
-    """All locs visible from both the locs"""
-
-    # they share some localities
-    visible = set(zoneflat(Locality.shared(l1, l2)))
-    if visible:
-        return visible
-
-    # intersection of their arounds
-    visible = set(zoneflat(Locality.around(l1))) & set(zoneflat(Locality.around(l2)))
-    return visible
