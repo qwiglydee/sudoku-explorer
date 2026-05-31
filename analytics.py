@@ -205,14 +205,6 @@ class MultiTarget(NamedTuple):
         return f"{joined}@{self.loc}"
 
 
-def are_nandable(t1: Target | MultiTarget, t2: Target | MultiTarget):
-    """If they can form a soft link"""
-    if t1.is_singular and t2.is_singular and t1.dig == t2.dig:
-        return are_visible(t1.loc, t2.loc)
-    else:
-        return t1.loc == t2.loc
-
-
 class Link(tuple[Target, Target]):
     """Ordered immutable pair of targets"""
 
@@ -249,7 +241,7 @@ class Chain(tuple[Link, ...]):
 
     # totally ordered, unordered for comparision
 
-    ALTERATING = [SLink, HLink]  # for the extending
+    ALTERATING = [HLink, SLink]
 
     @classmethod
     def init(cls, link: HLink):
@@ -259,9 +251,15 @@ class Chain(tuple[Link, ...]):
     @classmethod
     def extend(cls, chain: Self, *links: Link) -> Self:
         """Add some links to end of the chain"""
-        assert all(isinstance(lnk, cls.ALTERATING[i % 2]) for i, lnk in enumerate(links))
+        assert all(isinstance(lnk, cls.ALTERATING[i % 2]) for i, lnk in enumerate(links, 1))
         assert chain[-1][-1] == links[0][0]
         return cls((*chain, *links))
+
+    @classmethod
+    def extendhead(cls, chain: Self, *links: Link) -> Self:
+        assert all(isinstance(lnk, cls.ALTERATING[i % 2]) for i, lnk in enumerate(links))
+        assert chain[0][0] == links[-1][-1]
+        return cls((*links, *chain))
 
     def anchors(self) -> set[Target]:
         """All anchor points in the chain"""
@@ -288,7 +286,7 @@ class Chain(tuple[Link, ...]):
         joined = reduce(lambda a, lnk: a + strtail(lnk), self, str(self[0][0]))
 
         if self.is_loop:
-            return f"(…{joined}…)"
+            return f"(… {joined} …)"
         else:
             return f"({joined})"
 
