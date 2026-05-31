@@ -15,7 +15,7 @@ FONT1_SIZE = 12
 FONT1 = f"{FONT1_SIZE}px sans-serif"
 FONT2_SIZE = 32
 FONT2 = f"{FONT2_SIZE}px sans-serif"
-FONT_COLOR = "#000000"
+FONT_COLORS = {"": "#000000", "HIGH": "#FFFFFF", "FINAL": "#606060"}
 BG_COLOR = "#808080"
 
 HIGHLIGHT_SIZE = CELL_SIZE / 3
@@ -140,8 +140,11 @@ class SudokuCanvas(MultiCanvas):
             canvas.stroke_style = "rgba(0, 0, 0, 1.0)"
             canvas.stroke_rect(P0.x, P0.y, size, size)
 
-    def draw_board(self, board: Board):
+    def draw_board(self, board: Board, highlight: set[int] = set()):
         canvas = self[self.DIGITS_LAYER]
+
+        def digcolor(dig: int):
+            return "HIGH" if dig in highlight else ""
 
         canvas.clear()
         with hold_canvas():
@@ -150,27 +153,19 @@ class SudokuCanvas(MultiCanvas):
                     continue
 
                 c = cell_xy(node.loc)
-                if node.cell.is_final:
-                    value = node.cell.final
+                if node.cell.final is not None:
+                    dig = node.cell.final
                     canvas.font = FONT2
-                    canvas.fill_style = FONT_COLOR
-                    canvas.fill_text(str(value), P0.x + c.x + 0.5 * CELL_SIZE, P0.x + c.y + 0.5 * CELL_SIZE)
+                    canvas.fill_style = FONT_COLORS["FINAL"]
+                    canvas.fill_text(str(dig), P0.x + c.x + 0.5 * CELL_SIZE, P0.x + c.y + 0.5 * CELL_SIZE)
                 else:
                     for dig in range(1, 10):
                         if dig not in node.cell:
                             continue
                         s = segm_xy(dig)
                         canvas.font = FONT1
-                        canvas.fill_style = FONT_COLOR
+                        canvas.fill_style = FONT_COLORS[digcolor(dig)]
                         canvas.fill_text(str(dig), P0.x + c.x + s.x, P0.y + c.y + s.y)
-
-    def highlight_digit(self, loc: Loc, seg: int, text: str):
-        canvas = self[self.HLIGHT_LAYER]
-        c = cell_xy(loc)
-        s = segm_xy(seg)
-        canvas.fill_style = FONT_COLOR
-        # NB: text is centered
-        canvas.fill_text(text, P0.x + c.x + s.x, P0.y + c.y + s.y)
 
     def clear_highlights(self):
         canvas = self[self.HLIGHT_LAYER]
