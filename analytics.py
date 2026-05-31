@@ -19,6 +19,10 @@ class Locality(NamedTuple):
     row: int | None
     col: int | None
 
+    @property
+    def is_cellular(self) -> bool:
+        return self.row is not None and self.col is not None
+
     def iter(self) -> Iterable[Loc]:
         """Iterate all locations in the locality"""
         match tuple(self):
@@ -163,10 +167,24 @@ class Target(NamedTuple):
         return f"{self.dig}@{self.loc}"
 
 
-# TODO: replace Target with proper API
 class MultiTarget(NamedTuple):
+    """Target many segments in a locality"""
+
     loc: Locality
     digs: frozenset[int]
+
+    @classmethod
+    def new(cls, loc: Loc | Locality, dig: int | Iterable[int]) -> Self:
+        """Create from arbitrary args"""
+        if isinstance(loc, Loc):
+            loc = Locality(None, loc.row, loc.col)
+        if isinstance(dig, int):
+            dig = {dig}
+        return cls(loc, frozenset(dig))
+
+    @property
+    def is_cellular(self) -> bool:
+        return self.loc.is_cellular
 
     @property
     def is_singular(self) -> bool:

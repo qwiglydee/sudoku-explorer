@@ -20,12 +20,18 @@ BG_COLOR = "#808080"
 
 HIGHLIGHT_SIZE = CELL_SIZE / 3
 HIGHLIGHT_R = HIGHLIGHT_SIZE / 2 - 2
-LINK_WIDTH = 6
+
+WIDTHS = {
+    "HARD": 6,
+    "SOFT": 6,
+    "SOLID": 6,
+    "GROUP": SEGM_SIZE - 2,
+}
 
 DASHES = {
     "SOLID": [],
     "HARD": [],
-    "SOFT": [LINK_WIDTH * 2, LINK_WIDTH],
+    "SOFT": [12, 6],
 }
 
 
@@ -179,29 +185,19 @@ class SudokuCanvas(MultiCanvas):
         canvas.clear_rect(P0.x + c.x + s.x - HIGHLIGHT_R, P0.y + c.y + s.y - HIGHLIGHT_R, HIGHLIGHT_SIZE, HIGHLIGHT_SIZE)
         canvas.fill_circle(P0.x + c.x + s.x, P0.y + c.y + s.y, HIGHLIGHT_R)
 
-    def highlight_segments(self, loc: Loc, segs: Iterable[int], *, color: str = HIGHLIGHT_COLOR):
-        canvas = self[self.HLIGHT_LAYER]
-        c = cell_xy(loc)
-        for seg in segs:
-            s = segm_xy(seg)
-            canvas.set_line_dash([])
-            canvas.fill_style = pick_color(color)
-            canvas.clear_rect(P0.x + c.x + s.x - HIGHLIGHT_R, P0.y + c.y + s.y - HIGHLIGHT_R, HIGHLIGHT_SIZE, HIGHLIGHT_SIZE)
-            canvas.fill_circle(P0.x + c.x + s.x, P0.y + c.y + s.y, HIGHLIGHT_R)
-
     def highlight_link(self, loc1: Loc, seg1: int, loc2: Loc, seg2: int, *, color: str = HIGHLIGHT_COLOR, style: str = "SOLID"):
         canvas = self[self.HLIGHT_LAYER]
         t1 = XY.add(P0, targ_xy(loc1, seg1))
         t2 = XY.add(P0, targ_xy(loc2, seg2))
         canvas.set_line_dash(DASHES[style])
-        canvas.line_width = LINK_WIDTH
+        canvas.line_width = WIDTHS[style]
         canvas.stroke_style = pick_color(color)
 
         length = max(1, math.ceil(XY.dist(t1, t2) / CELL_SIZE))
         wobble = CELL_SIZE * length / 36
 
         if style == "HARD":
-            points = tuple(split_line(t1, t2, n=length // 3))
+            points = tuple(split_line(t1, t2, n=max(1, length // 2)))
             points = tuple(jig_line(points, wobble))
             stroke_quadsmooth_path(canvas, points)
         elif style == "SOFT":
