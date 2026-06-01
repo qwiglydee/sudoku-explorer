@@ -8,7 +8,6 @@ from board import Board, Loc
 from palette import pick_color
 
 CANVAS_SIZE = 640
-PADDING = 4
 FONT_SIZE = 12
 FONT = f"{FONT_SIZE}px sans-serif"
 FONT_COLORS = {"": "#000000", "HIGH": "#FFFFFF", "FINAL": "#404040"}
@@ -21,7 +20,8 @@ def segm_rc(seg: int):
 
 
 class XY(NamedTuple):
-    CELL = (640 - PADDING * 2) / 9
+    PAD = 6
+    CELL = (CANVAS_SIZE - PAD * 2) / 9
     SEGM = CELL / 3
 
     x: float
@@ -71,6 +71,8 @@ class XY(NamedTuple):
         return loc, 1 + srow * 3 + scol
 
 
+P0 = XY(XY.PAD, XY.PAD)
+
 HIGHLIGHT_SIZE = XY.CELL / 3
 HIGHLIGHT_R = HIGHLIGHT_SIZE / 2 - 2
 
@@ -92,9 +94,6 @@ HIGHLIGHT_COLOR = pick_color("blue")
 
 
 XYs = tuple[XY, ...]
-
-
-P0 = XY(PADDING, PADDING)
 
 
 class SudokuCanvas(MultiCanvas):
@@ -128,6 +127,7 @@ class SudokuCanvas(MultiCanvas):
             canvas.fill_style = BG_COLOR
             canvas.fill_rect(P0.x, P0.y, fullsize, fullsize)
 
+            canvas.line_width = 1
             canvas.stroke_style = "rgba(0, 0, 0, 0.25)"
             for i in range(1, 9):
                 p9 = XY.add(P0, XY(i * XY.CELL, i * XY.CELL))
@@ -138,9 +138,9 @@ class SudokuCanvas(MultiCanvas):
                 p3 = XY.add(P0, XY(i * XY.CELL * 3, i * XY.CELL * 3))
                 canvas.stroke_line(P0.x, p3.y, P0.x + fullsize, p3.y)
                 canvas.stroke_line(p3.x, P0.y, p3.x, P0.y + fullsize)
-            canvas.line_width = 4
+            canvas.line_width = XY.PAD
             canvas.stroke_style = "rgba(0, 0, 0, 1.0)"
-            canvas.stroke_rect(P0.x - 2, P0.y - 2, fullsize + 2, fullsize + 2)
+            canvas.stroke_rect(P0.x - XY.PAD / 2, P0.y - XY.PAD / 2, fullsize + XY.PAD, fullsize + XY.PAD)
 
     def draw_board(self, board: Board, highlight: set[int] = set()):
         canvas = self[self.DIGITS_LAYER]
