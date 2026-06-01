@@ -3,7 +3,7 @@ from collections.abc import Generator, AsyncGenerator
 from dataclasses import dataclass
 
 from board import Cell, Board
-from analytics import Target
+from analytics import Target, validate
 
 
 @dataclass
@@ -53,13 +53,14 @@ async def orchestrator(initial: Board, *resolvers: Resolver) -> AsyncGenerator[R
             idx = 0
 
 
-async def solver(initial: Board, orchestra: AsyncGenerator[Resolver, Board]) -> Solving:
+async def solver(initial: Board, *resolvers: Resolver) -> Solving:
     """Applies all resolutions from orchestra of resolvers
     Yield intermediate results for inspecting
     """
-    resolver = await orchestra.asend(None)  # type: ignore that fucking caveat
+    orchestra = orchestrator(initial, *resolvers)
 
     current = initial
+    resolver = await orchestra.asend(None)  # type: ignore that fucking caveat
     while True:
         for resolution in resolver(current):
             current = resolution.apply(current)
@@ -68,3 +69,35 @@ async def solver(initial: Board, orchestra: AsyncGenerator[Resolver, Board]) -> 
             resolver = await orchestra.asend(current)
         except StopAsyncIteration:
             break
+
+
+async def solve_silent(initial: Board, *resolvers: Resolver):
+    result = initial
+    async for _, _, result in solver(initial, *resolvers):
+        pass
+    return result
+
+
+async def solve_logging(initial: Board, /, *resolvers: Resolver, filtout: set[str] | None = None):
+    result = initial
+    iterations = 0
+    async for resolver, resolution, result in solver(initial, *resolvers):
+        iterations += 1
+        if filtout and resolver.__name__ in filtout:
+            continue
+        print(f"{iterations:03d} {resolver.__name__}", end=": ")
+        if resolution.castaways:
+            print("-={", " ".join(map(str, resolution.castaways)), "}", end=" ")
+        if resolution.finals:
+            print(":={", " ".join(map(str, resolution.finals)), "}", end=" ")
+        if resolution.highlights:
+            if "zone" in resolution.highlights:
+                print("@", resolution.highlights["zone"], end=" ")
+            print("#", end=" ")
+            if "anchors" in resolution.highlights:
+                print(" ".join(map(str, resolution.highlights["anchors"])), end=" ")
+            if "chain" in resolution.highlights:
+                print(resolution.highlights["chain"], end=" ")
+        print()
+    print(validate(result), "in", iterations)
+    return result

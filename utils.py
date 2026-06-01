@@ -3,7 +3,7 @@ from collections import Counter
 from itertools import chain as iterchain
 from typing import Iterable
 
-from board import Board, Cell, Loc, Node
+from board import DIGITS, Board, Cell, Loc, Node
 
 iterflat = iterchain.from_iterable
 
@@ -55,3 +55,10 @@ def count_finals(nodes: Iterable[Node]) -> Counter:
 
 def count_digits(nodes: Iterable[Node]):
     return Counter(iterflat(n.cell for n in nodes))
+
+
+def fillempty(node: Node):
+    if node.cell.is_empty:
+        return Node(node.loc, Cell(DIGITS))
+    else:
+        return node
