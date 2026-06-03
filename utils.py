@@ -8,6 +8,10 @@ from board import DIGITS, Board, Cell, Loc, Node
 iterflat = iterchain.from_iterable
 
 
+def nonone(obj) -> bool:
+    return obj is not None
+
+
 def diff(b1: Board, b2: Board):
     new = Board()
     new.cells = tuple(Cell(set(c1) ^ set(c2)) for c1, c2 in zip(b1.cells, b2.cells))

@@ -2,7 +2,7 @@ from functools import reduce
 from itertools import chain as iterchain
 from typing import Iterable, NamedTuple, Self
 
-from board import DIGITS, POS9, Board, Loc, Node
+from board import DIGITS, RANGE9, Board, Loc, Node
 
 iterflat = iterchain.from_iterable
 
@@ -30,9 +30,9 @@ class Locality(NamedTuple):
                 r1, c1 = Loc.of_blk(b)
                 yield from (Loc(r, c) for r in (r1, r1 + 1, r1 + 2) for c in (c1, c1 + 1, c1 + 2))
             case (None, int(r), None):
-                yield from (Loc(r, i) for i in POS9)
+                yield from (Loc(r, i) for i in RANGE9)
             case (None, None, int(c)):
-                yield from (Loc(i, c) for i in POS9)
+                yield from (Loc(i, c) for i in RANGE9)
             case (_, int(r), int(c)):
                 yield Loc(r, c)
             case (int(b), int(r), None):
@@ -44,7 +44,7 @@ class Locality(NamedTuple):
                 assert c1 <= c <= c1 + 2, "invalid locality intersection"
                 yield from (Loc(r, c) for r in (r1, r1 + 1, r1 + 2))
             case (None, None, None):
-                yield from (Loc(r, c) for r in POS9 for c in POS9)
+                yield from (Loc(r, c) for r in RANGE9 for c in RANGE9)
             case _:
                 raise TypeError()
 
@@ -116,11 +116,11 @@ class Locality(NamedTuple):
 
     @classmethod
     def all(cls) -> Iterable[Self]:
-        for i in POS9:
+        for i in RANGE9:
             yield cls(i, None, None)
-        for i in POS9:
+        for i in RANGE9:
             yield cls(None, i, None)
-        for i in POS9:
+        for i in RANGE9:
             yield cls(None, None, i)
 
     def __str__(self):
