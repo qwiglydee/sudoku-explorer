@@ -4,12 +4,20 @@ from itertools import chain as iterchain
 from typing import Iterable
 
 from board import DIGITS, Board, Cell, Loc, Node
+from analytics import Zone
 
 iterflat = iterchain.from_iterable
 
 
 def nonone(obj) -> bool:
     return obj is not None
+
+
+def nodehave(dig: int):
+    def filt(node: Node):
+        return dig in node.cell
+
+    return filt
 
 
 def diff(b1: Board, b2: Board):
@@ -66,3 +74,29 @@ def fillempty(node: Node):
         return Node(node.loc, Cell(DIGITS))
     else:
         return node
+
+
+def neighborhood(board: Board, zone: Zone) -> Iterable[Node]:
+    return board.slice(iter(zone))
+
+
+def draftborhood(board: Board, zone: Zone) -> Iterable[Node]:
+    return filter(Node.is_draft, board.slice(iter(zone)))
+
+
+def finalborhood(board: Board, zone: Zone) -> Iterable[Node]:
+    return filter(Node.is_final, board.slice(iter(zone)))
+
+
+def validate(board: Board):
+    if not all(Node.is_final(n) for n in board):
+        return "INCOMPLETE"
+
+    def fulfiled(zone: Zone):
+        finalborhood = tuple(filter(Node.is_final, neighborhood(board, zone)))
+        return set(n.cell.final for n in finalborhood) == DIGITS
+
+    if all(map(fulfiled, Zone.All())):
+        return "SOLVED"
+    else:
+        return "BROKEN"

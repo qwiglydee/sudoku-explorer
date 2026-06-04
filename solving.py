@@ -2,8 +2,9 @@ from typing import Any, Callable
 from collections.abc import Generator, AsyncGenerator
 from dataclasses import dataclass
 
-from board import Cell, Board
-from analytics import Target, validate
+from board import Cell, Board, Node
+from analytics import Target
+from utils import validate
 
 
 @dataclass
@@ -14,14 +15,23 @@ class Resolution:
     def apply(self, current: Board) -> Board:
         """Removing castaways and isolating all finals"""
 
+        def remove(trg):
+            def trans(node: Node):
+                if node.loc in trg.zone:
+                    return Node(node.loc, Cell(node.cell - {trg.dig}))
+                else:
+                    return node
+
+            return trans
+
         if self.castaways:
             for trg in self.castaways:
-                orig = current.get(trg.loc)
-                current = Board.replace(current, trg.loc, Cell(orig.cell - {trg.dig}))
+                current = Board.transform(current, remove(trg))
 
         if self.finals:
+            assert all(t.is_cellular for t in self.finals)
             for trg in self.finals:
-                current = Board.replace(current, trg.loc, Cell({trg.dig}))
+                current = Board.replace(current, trg.zone.loc(), Cell({trg.dig}))
 
         return current
 

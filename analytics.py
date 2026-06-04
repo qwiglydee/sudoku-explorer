@@ -1,208 +1,416 @@
 from functools import reduce
-from itertools import chain as iterchain
-from typing import Iterable, NamedTuple, Self
+from itertools import chain as iterchain, product as iterprod
+from types import EllipsisType
+from typing import Iterable, Iterator, NamedTuple, Self
 
-from board import DIGITS, RANGE9, Board, Loc, Node
+from board import DIGITS, Board, Loc, Node
 
 iterflat = iterchain.from_iterable
 
+Every = EllipsisType
+EVERY = Ellipsis
 
-def Node_has(dig: int):
-    return lambda n: dig in n.cell
+
+class Topo:
+    """Relations between blocks/rows/cols
+
+    Defines topology of the board
+    """
+
+    IDX = (1, 2, 3, 4, 5, 6, 7, 8, 9)
+
+    blks = IDX
+    rows = IDX
+    cols = IDX
+
+    @staticmethod
+    def blk4loc(row: int, col: int) -> int:
+        assert 1 <= row <= 9 and 1 <= col <= 9
+        r0 = (row - 1) // 3 * 3
+        c0 = (col - 1) // 3
+        return r0 + c0 + 1
+
+    @staticmethod
+    def blk4row(row: int) -> tuple[int, int, int]:
+        assert 1 <= row <= 9
+        b0 = (row - 1) // 3 * 3
+        return (b0 + 1, b0 + 2, b0 + 3)
+
+    @staticmethod
+    def blk4col(col: int) -> tuple[int, int, int]:
+        assert 1 <= col <= 9
+        b0 = (col - 1) // 3
+        return (b0 + 1, b0 + 4, b0 + 7)
+
+    @staticmethod
+    def row4blk(blk: int) -> tuple[int, int, int]:
+        assert 1 <= blk <= 9
+        r0 = (blk - 1) // 3 * 3
+        return (r0 + 1, r0 + 2, r0 + 3)
+
+    @staticmethod
+    def col4blk(blk: int) -> tuple[int, int, int]:
+        assert 1 <= blk <= 9
+        c0 = (blk - 1) % 3 * 3
+        return (c0 + 1, c0 + 2, c0 + 3)
+
+    @staticmethod
+    def valid(blk: int | Every, row: int | Every, col: int | Every) -> bool:
+        # hard constraints
+        assert blk is EVERY or 1 <= blk <= 9  # type: ignore
+        assert row is EVERY or 1 <= row <= 9  # type: ignore
+        assert col is EVERY or 1 <= col <= 9  # type: ignore
+
+        # soft constraints
+        try:
+            if isinstance(blk, int):
+                if isinstance(row, int):
+                    assert row in Topo.row4blk(blk)
+                if isinstance(col, int):
+                    assert col in Topo.col4blk(blk)
+            else:
+                assert row is EVERY or col is EVERY
+            return True
+        except AssertionError:
+            return False
 
 
-class Locality(NamedTuple):
-    """Locality of a block, row, col, cell or their intersections"""
+class Zone(NamedTuple):
+    """Secition or subsection of the board
 
-    # all None means whole board
-    blk: int | None
-    row: int | None
-    col: int | None
+    Defines visibility relations.
+    The class implements set-like operations
+    """
+
+    blk: int | EllipsisType
+    row: int | EllipsisType
+    col: int | EllipsisType
+
+    @classmethod
+    def B(cls, blk: int) -> Self:
+        assert 1 <= blk <= 9
+        return cls(blk, ..., ...)
+
+    @classmethod
+    def R(cls, row: int) -> Self:
+        assert 1 <= row <= 9
+        return cls(..., row, ...)
+
+    @classmethod
+    def C(cls, col: int) -> Self:
+        assert 1 <= col <= 9
+        return cls(..., ..., col)
+
+    @classmethod
+    def L(cls, row: int, col: int) -> Self:
+        assert 1 <= row <= 9 and 1 <= col <= 9
+        return cls(Topo.blk4loc(row, col), row, col)
+
+    @classmethod
+    def Allblk(cls) -> Iterable[Self]:
+        return (cls(b, ..., ...) for b in Topo.blks)
+
+    @classmethod
+    def Allrow(cls) -> Iterable[Self]:
+        return (cls(..., r, ...) for r in Topo.rows)
+
+    @classmethod
+    def Allcol(cls) -> Iterable[Self]:
+        return (cls(..., ..., c) for c in Topo.cols)
+
+    @classmethod
+    def All(cls) -> Iterable[Self]:
+        yield from cls.Allblk()
+        yield from cls.Allrow()
+        yield from cls.Allcol()
+
+    # invalid blk may occur because of all the mess around
+
+    def valid(self) -> bool:
+        return Topo.valid(self.blk, self.row, self.col)
 
     @property
-    def is_cellular(self) -> bool:
-        return self.row is not None and self.col is not None
+    def is_everything(self):
+        # it may appear in some calculations
+        return self.blk is EVERY and self.row is EVERY and self.col is EVERY
 
-    def iter(self) -> Iterable[Loc]:
-        """Iterate all locations in the locality"""
-        match tuple(self):
-            case (int(b), None, None):
-                r1, c1 = Loc.of_blk(b)
-                yield from (Loc(r, c) for r in (r1, r1 + 1, r1 + 2) for c in (c1, c1 + 1, c1 + 2))
-            case (None, int(r), None):
-                yield from (Loc(r, i) for i in RANGE9)
-            case (None, None, int(c)):
-                yield from (Loc(i, c) for i in RANGE9)
-            case (_, int(r), int(c)):
-                yield Loc(r, c)
-            case (int(b), int(r), None):
-                r1, c1 = Loc.of_blk(b)
-                assert r1 <= r <= r1 + 2, "invalid locality intersection"
-                yield from (Loc(r, c) for c in (c1, c1 + 1, c1 + 2))
-            case (int(b), None, int(c)):
-                r1, c1 = Loc.of_blk(b)
-                assert c1 <= c <= c1 + 2, "invalid locality intersection"
-                yield from (Loc(r, c) for r in (r1, r1 + 1, r1 + 2))
-            case (None, None, None):
-                yield from (Loc(r, c) for r in RANGE9 for c in RANGE9)
+    @property
+    def is_cellular(self):
+        return self.row is not EVERY and self.col is not EVERY
+
+    @property
+    def is_major(self):
+        return sum(a is not EVERY for a in (self.blk, self.row, self.col)) == 1
+
+    @classmethod
+    def of(cls, what: Node | Loc | Self):
+        if isinstance(what, cls):
+            return what
+        if isinstance(what, Loc):
+            return cls(Topo.blk4loc(what.row, what.col), what.row, what.col)
+        if isinstance(what, Node):
+            loc = what.loc
+            return cls(Topo.blk4loc(loc.row, loc.col), loc.row, loc.col)
+        raise ValueError()
+
+    def loc(self) -> Loc:
+        assert isinstance(self.row, int) and isinstance(self.col, int)
+        return Loc(self.row, self.col)
+
+    @classmethod
+    def intersection(cls, zone1: Self, zone2: Self) -> Self | None:
+        """Intersection of zones
+        == visible from both zones
+        """
+        if zone1.is_everything:  # WHY?
+            return zone2
+        if zone2.is_everything:  # WHY?
+            return zone1
+
+        assert zone1.valid() and zone2.valid()
+
+        if zone1 == zone2:
+            return zone1
+
+        def eqe(cell, zone):
+            # if a cellular zone matches some another zone
+            return (zone.blk == EVERY or zone.blk == cell.blk) and (zone.row == EVERY or zone.row == cell.row) and (zone.col is EVERY or zone.col == cell.col)
+
+        if zone1.is_cellular:
+            return zone1 if eqe(zone1, zone2) else None
+        if zone2.is_cellular:
+            return zone2 if eqe(zone2, zone1) else None
+
+        def validated(b, r, c):
+            return cls(b, r, c) if Topo.valid(b, r, c) else None
+
+        # TODO: optimize the shit
+        match zone1.blk, zone1.row, zone1.col, zone2.blk, zone2.row, zone2.col:
+            case Every(), int(r1), Every(), Every(), Every(), int(c2):  # R & C
+                return cls(Topo.blk4loc(r1, c2), r1, c2)
+            case Every(), Every(), int(c1), Every(), int(r2), Every():  # C & R
+                return cls(Topo.blk4loc(r2, c1), r2, c1)
+            case int(b1), Every(), Every(), Every(), int(r2), Every():  # B & R
+                return validated(b1, r2, ...)
+            case int(b1), Every(), Every(), Every(), Every(), int(c2):  # B & C
+                return validated(b1, ..., c2)
+            case Every(), int(r1), Every(), int(b2), Every(), Every():  # R & B
+                return validated(b2, r1, ...)
+            case Every(), Every(), int(c1), int(b2), Every(), Every():  # C & B
+                return validated(b2, ..., c1)
+            # overlapping cases
+            case int(b1), int(r1), Every(), int(b2), Every(), Every():  # BR & B
+                return zone1 if b1 == b2 else None
+            case int(b1), int(r1), Every(), Every(), int(r2), Every():  # BR & R
+                return zone1 if r1 == r2 else None
+            case int(b1), Every(), int(c1), int(b2), Every(), Every():  # BC & B
+                return zone1 if b1 == b2 else None
+            case int(b1), Every(), int(c1), Every(), Every(), int(c2):  # BC & C
+                return zone1 if c1 == c2 else None
+            case int(b1), Every(), Every(), int(b2), int(r2), Every():  # B & BR
+                return zone2 if b1 == b2 else None
+            case Every(), int(r1), Every(), int(b2), int(r2), Every():  # R & BR
+                return zone2 if r1 == r2 else None
+            case int(b1), Every(), Every(), int(b2), Every(), int(c2):  # B & BC
+                return zone2 if b1 == b2 else None
+            case Every(), Every(), int(c1), int(b2), Every(), int(c2):  # C & BC
+                return zone2 if c1 == c2 else None
+            # cellularizing
+            case int(b1), int(r1), Every(), Every(), Every(), int(c2):  # BR & C
+                return validated(b1, r1, c2)
+            case int(b1), Every(), int(c1), Every(), int(r2), Every():  # BC & R
+                return validated(b1, r2, c1)
+            case int(b1), int(r1), Every(), int(b2), Every(), int(c2):  # BR & BC
+                return validated(b1, r1, c2) if b1 == b2 else None
+            case Every(), Every(), int(c1), int(b2), int(r2), Every():  # C & BR
+                return validated(b2, r2, c1)
+            case Every(), int(r1), Every(), int(b2), Every(), int(c2):  # BC & R
+                return validated(b2, r1, c2)
+            case int(b1), Every(), int(c1), int(b2), int(r2), Every():  # BC & BR
+                return validated(b2, r2, c1) if b1 == b2 else None
             case _:
-                raise TypeError()
+                return None
 
-    def locs(self) -> set[Loc]:
-        return set(self.iter())
+    def issubzone(self, other: Self):
+        """This zone fully contained in another (or equal)
+        = fully mutually visible
+        """
+
+        if self == other:
+            return True
+
+        if other.is_everything:
+            return True
+
+        if self.is_major:
+            return self == other
+
+        match self.blk, self.row, self.col, other.blk, other.row, other.col:
+            case int(b1), _, _, int(b2), Every(), Every():
+                return b1 == b2
+            case _, int(r1), _, Every(), int(r2), Every():
+                return r1 == r2
+            case _, _, int(c1), Every(), Every(), int(c2):
+                return c1 == c2
+
+        return False
+
+    @classmethod
+    def around(cls, zone: Self) -> Iterable[Self]:
+        """All major zones fully containing a subzone
+        = visible by any cell in the subzone
+        """
+        assert zone.valid()
+
+        match zone.blk, zone.row, zone.col:
+            case int(b), int(r), Every():
+                yield cls(b, ..., ...)
+                yield cls(..., r, ...)
+            case int(b), Every(), int(c):
+                yield cls(b, ..., ...)
+                yield cls(..., ..., c)
+            case int(b), int(r), int(c):
+                yield cls(b, ..., ...)
+                yield cls(..., r, ...)
+                yield cls(..., ..., c)
+
+    @classmethod
+    def across(cls, zone: Self):
+        """All major zones intersecting given
+        = vizible by some cells in the zone
+        """
+        assert zone.valid()
+
+        match zone.blk, zone.row, zone.col:
+            case int(b), Every(), Every():
+                yield from (cls(..., r, ...) for r in Topo.row4blk(b))
+                yield from (cls(..., ..., c) for c in Topo.col4blk(b))
+            case Every(), int(r), Every():
+                yield from (cls(b, ..., ...) for b in Topo.blk4row(r))
+                yield from (cls(..., ..., c) for c in Topo.cols)
+            case Every(), Every(), int(c):
+                yield from (cls(b, ..., ...) for b in Topo.blk4col(c))
+                yield from (cls(..., r, ...) for r in Topo.rows)
+            case int(b), int(r), Every():
+                yield from (cls(..., ..., c) for c in Topo.col4blk(b))
+            case int(b), Every(), int(c):
+                yield from (cls(..., r, ...) for r in Topo.row4blk(b))
+
+    @classmethod
+    def partitions(cls, majzone: Self) -> Iterable[Self]:
+        """All subzones of a major zone, partitioned by intersections with others"""
+        assert majzone.valid() and majzone.is_major
+
+        # quick stuff without nested iterations and redundant overlappency
+        match majzone.blk, majzone.row, majzone.col:
+            case int(b), Every(), Every():
+                yield from (cls(b, r, ...) for r in Topo.row4blk(b))
+                yield from (cls(b, ..., c) for c in Topo.col4blk(b))
+            case Every(), int(r), Every():
+                yield from (cls(b, r, ...) for b in Topo.blk4row(r))
+            case Every(), Every(), int(c):
+                yield from (cls(b, ..., c) for b in Topo.blk4col(c))
+
+    def __iter__(self) -> Iterator[Loc]:
+        """Iterate all cell locations in the zone"""
+
+        assert self.valid()
+
+        match self.blk, self.row, self.col:
+            case Every(), Every(), Every():  # WHY ?
+                yield from (Loc(r, c) for r in Topo.rows for c in Topo.cols)
+            case _, int(r), int(c):
+                yield Loc(r, c)
+            case Every(), int(r), Every():
+                yield from (Loc(r, c) for c in Topo.cols)
+            case Every(), Every(), int(c):
+                yield from (Loc(r, c) for r in Topo.rows)
+            case int(b), Every(), Every():
+                yield from (Loc(r, c) for r in Topo.row4blk(b) for c in Topo.col4blk(b))
+            case int(b), int(r), Every():
+                yield from (Loc(r, c) for c in Topo.col4blk(b))
+            case int(b), Every(), int(c):
+                yield from (Loc(r, c) for r in Topo.row4blk(b))
 
     def __contains__(self, loc: Loc) -> bool:
-        """Chack if location is in the locality"""
-        match tuple(self):
-            case (int(b), None, None):
-                return loc.blk == b
-            case (None, int(r), None):
-                return loc.row == r
-            case (None, None, int(c)):
-                return loc.col == c
-            case (_, int(r), int(c)):
-                return loc.row == r and loc.col == c
-            case (int(b), int(r), None):
-                return loc.blk == b and loc.row == r
-            case (int(b), None, int(c)):
-                return loc.blk == b and loc.col == c
-            case (None, None, None):
+        """If the zone contains specific location"""
+
+        match self.blk, self.row, self.col:
+            case Every(), Every(), Every():
                 return True
-            case _:
-                raise TypeError()
+            case int(b), Every(), Every():
+                return loc.row in Topo.row4blk(b) and loc.col in Topo.col4blk(b)
+            case Every(), int(r), Every():
+                return loc.row == r
+            case Every(), Every(), int(c):
+                return loc.col == c
+            case int(b), int(r), Every():
+                return loc.row == r and loc.col in Topo.col4blk(b)
+            case int(b), Every(), int(c):
+                return loc.col == c and loc.row in Topo.row4blk(b)
+            case _, int(r), int(c):
+                return loc.row == r and loc.col == c
 
-    @classmethod
-    def around(cls, loc: Loc) -> Iterable[Self]:
-        """Get all major zones containing the loc"""
-        return (
-            cls(loc.blk, None, None),
-            cls(None, loc.row, None),
-            cls(None, None, loc.col),
-        )
+    def __le__(self, other: Self):
+        return self.issubzone(other)
 
-    @classmethod
-    def conjunc(cls, *zones: Self) -> Iterable[Loc]:
-        return reduce(lambda a, b: a & b, (z.locs() for z in zones))
+    def __lt__(self, other: Self):
+        return self.issubzone(other) and self != other
 
-    @classmethod
-    def disjunc(cls, *zones: Self) -> Iterable[Loc]:
-        return reduce(lambda a, b: a | b, (z.locs() for z in zones))
+    def __ge__(self, other: Self):
+        return other.issubzone(self)
 
-    @classmethod
-    def intersect(cls, loc1: Self, loc2: Self) -> Self:
-        def axis_fit(a1, a2):
-            return a1 == a2 or a1 is None or a2 is None
+    def __gt__(self, other: Self):
+        return other.issubzone(self) and self != other
 
-        assert axis_fit(loc1.blk, loc2.blk)
-        assert axis_fit(loc1.row, loc2.row)
-        assert axis_fit(loc1.col, loc2.col)
-        return cls(loc1.blk or loc2.blk, loc1.row or loc2.row, loc1.col or loc2.col)
-
-    def __and__(self, other):
-        return self.__class__.intersect(self, other)
-
-    @classmethod
-    def shared(cls, l1: Loc, l2: Loc) -> Iterable[Self]:
-        """Get all localities containing both of the locs"""
-        if l1 == l2:
-            yield cls(l1.blk, l1.row, l2.col)
-            return
-        if l1.blk == l2.blk:
-            yield cls(l1.blk, None, None)
-        if l1.row == l2.row:
-            yield cls(None, l1.row, None)
-        if l1.col == l2.col:
-            yield cls(None, None, l1.col)
-
-    @classmethod
-    def all(cls) -> Iterable[Self]:
-        for i in RANGE9:
-            yield cls(i, None, None)
-        for i in RANGE9:
-            yield cls(None, i, None)
-        for i in RANGE9:
-            yield cls(None, None, i)
+    def __and__(self, other: Self):
+        return self.__class__.intersection(self, other)
 
     def __str__(self):
-        bstr = f"b{self.blk}" if self.blk else "…"
-        rstr = f"r{self.row}" if self.row else "…"
-        cstr = f"c{self.col}" if self.col else "…"
-        return f"{{{bstr}{rstr}{cstr}}}"
+        rstr = "…" if self.row is EVERY else f"r{self.row}"
+        cstr = "…" if self.col is EVERY else f"c{self.col}"
+        if self.is_cellular:
+            return f"[{rstr}{cstr}]"
+        else:
+            bstr = "…" if self.blk is EVERY else f"b{self.blk}"
+            return f"[{bstr}{rstr}{cstr}]"
 
 
-def zoneflat(zones: Iterable[Locality]) -> Iterable[Loc]:
-    return iterflat(z.iter() for z in zones)
+def visibility(z1: Zone, z2: Zone):
+    """Check if the zones are fully mutually visible
+    Return their common major zones
+    """
+    return set(Zone.around(z1)) & set(Zone.around(z2))
 
 
-def are_visible(loc1: Loc | Locality, loc2: Loc | Locality) -> bool:
-    """If they mutually visible"""
-    return loc1.blk == loc2.blk or loc1.row == loc2.row or loc1.col == loc2.col
-
-
-def all_visible(l1: Loc, l2: Loc) -> Iterable[Loc]:
-    """All locs visible from both the locs"""
-
-    shared = set(Locality.shared(l1, l2))
-    if shared:
-        # all from shared localities
-        return set(zoneflat(shared))
-    else:
-        # intersection of their arounds
-        return set(zoneflat(Locality.around(l1))) & set(zoneflat(Locality.around(l2)))
-
-
-def neighborhood(loc: Locality, nodes: Board | Iterable[Node]) -> Iterable[Node]:
-    if isinstance(nodes, Board):
-        return nodes.slice(loc.iter())
-    else:
-        locs = loc.locs()
-        return filter(lambda n: n.loc in locs, nodes)
+def allvisible(z1: Zone, z2: Zone) -> set[Zone]:
+    """All zones/cells fully visible from both of the observers"""
+    intervis = set(z1a & z2a for z1a, z2a in iterprod(Zone.around(z1), Zone.around(z2)))
+    intervis -= {None}
+    return intervis  # type: ignore
 
 
 class Target(NamedTuple):
-    """Target digit-segment inside a cell"""
+    """A draft involved in some relation"""
 
-    loc: Loc
+    zone: Zone
     dig: int
-
-    is_singular = True
-
-    def __str__(self):
-        return f"{self.dig}@{self.loc}"
-
-
-class MultiTarget(NamedTuple):
-    """Target many segments in a locality"""
-
-    loc: Locality
-    digs: frozenset[int]
-
-    @classmethod
-    def new(cls, loc: Loc | Locality, dig: int | Iterable[int]) -> Self:
-        """Create from arbitrary args"""
-        if isinstance(loc, Loc):
-            loc = Locality(None, loc.row, loc.col)
-        if isinstance(dig, int):
-            dig = {dig}
-        return cls(loc, frozenset(dig))
 
     @property
     def is_cellular(self) -> bool:
-        return self.loc.is_cellular
+        return self.zone.is_cellular
 
-    @property
-    def is_singular(self) -> bool:
-        return len(self.digs) == 1
-
-    @property
-    def dig(self) -> int:
-        assert self.is_singular
-        (d,) = self.digs
-        return d
+    @classmethod
+    def to(cls, where: Loc | Zone | Node, what: int) -> Self:
+        if isinstance(where, Zone):
+            return cls(where, what)
+        elif isinstance(where, Loc):
+            return cls(Zone.L(where.row, where.col), what)
+        elif isinstance(where, Node):
+            return cls(Zone.L(where.loc.row, where.loc.col), what)
 
     def __str__(self):
-        joined = "".join(map(str, self.digs))
-        return f"{joined}@{self.loc}"
+        return f"{self.dig}@{self.zone}"
 
 
 class Link(tuple[Target, Target]):
@@ -289,17 +497,3 @@ class Chain(tuple[Link, ...]):
             return f"(… {joined} …)"
         else:
             return f"({joined})"
-
-
-def validate(board: Board):
-    if not all(Node.is_final(n) for n in board):
-        return "INCOMPLETE"
-
-    def fulfiled(zone: Locality):
-        finalborhood = tuple(filter(Node.is_final, neighborhood(zone, board)))
-        return set(n.cell.final for n in finalborhood) == DIGITS
-
-    if all(map(fulfiled, Locality.all())):
-        return "SOLVED"
-    else:
-        return "BROKEN"
