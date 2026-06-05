@@ -73,22 +73,15 @@ class XY(NamedTuple):
 
 P0 = XY(XY.PAD, XY.PAD)
 
-HIGHLIGHT_SIZE = XY.CELL / 3
-HIGHLIGHT_R = HIGHLIGHT_SIZE / 2 - 2
+HIGHLIGHT_SIZE = XY.CELL / 3 - 4
+HIGHLIGHT_R = HIGHLIGHT_SIZE / 2
 
 WIDTHS = {
+    "SOLID": 6,
     "HARD": 6,
     "SOFT": 6,
-    "SOLID": 6,
-    "GROUP": XY.SEGM - 2,
+    "GROUP": XY.SEGM / 2,
 }
-
-DASHES = {
-    "SOLID": [],
-    "HARD": [],
-    "SOFT": [3, 3],
-}
-
 
 HIGHLIGHT_COLOR = pick_color("blue")
 
@@ -115,6 +108,7 @@ class SudokuCanvas(MultiCanvas):
         hlight_cnv.text_baseline = "middle"
         hlight_cnv.text_align = "center"
         hlight_cnv.global_alpha = 0.625
+        hlight_cnv.line_cap = "round"
 
         self.draw_grid()
 
@@ -177,7 +171,6 @@ class SudokuCanvas(MultiCanvas):
         canvas = self[self.HLIGHT_LAYER]
         p1 = XY.add(P0, XY.ofsegm(loc1, seg1))
         p2 = XY.add(P0, XY.ofsegm(loc2, seg2))
-        canvas.set_line_dash(DASHES[style])
         canvas.line_width = WIDTHS[style]
         canvas.stroke_style = pick_color(color)
 
@@ -186,12 +179,15 @@ class SudokuCanvas(MultiCanvas):
         if style == "HARD":
             points = tuple(split_line(p1, p2, n=1 + length // 2))
             points = tuple(jig_line(points, XY.SEGM))
+            canvas.set_line_dash([])
             stroke_quadsmooth_path(canvas, points)
         elif style == "SOFT":
             points = tuple(split_line(p1, p2, n=2 * length))
             points = tuple(jig_line(points, XY.SEGM))
+            canvas.set_line_dash([8, 16])
             stroke_quadsmooth_path(canvas, points)
         else:
+            canvas.set_line_dash([])
             canvas.stroke_line(p1.x, p1.y, p2.x, p2.y)
 
 

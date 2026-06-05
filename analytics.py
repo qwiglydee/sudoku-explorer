@@ -275,7 +275,7 @@ class Zone(NamedTuple):
                 yield cls(..., ..., c)
 
     @classmethod
-    def across(cls, zone: Self):
+    def across(cls, zone: Self) -> Iterable[Self]:
         """All major zones intersecting given
         = vizible by some cells in the zone
         """
@@ -295,6 +295,10 @@ class Zone(NamedTuple):
                 yield from (cls(..., ..., c) for c in Topo.col4blk(b))
             case int(b), Every(), int(c):
                 yield from (cls(..., r, ...) for r in Topo.row4blk(b))
+
+    @classmethod
+    def aside(cls, zone: Self, subzone: Self) -> Iterable[Self]:
+        return set(cls.around(subzone)) - {zone}
 
     @classmethod
     def partitions(cls, majzone: Self) -> Iterable[Self]:
