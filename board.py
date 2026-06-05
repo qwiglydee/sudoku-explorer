@@ -28,75 +28,67 @@ class Loc(NamedTuple):
         return f"r{self.row}c{self.col}"
 
 
-class Cell(frozenset[int]):
-    """Set of digits in a cell"""
-
-    @property
-    def is_empty(self) -> bool:
-        return len(self) == 0
-
-    @property
-    def is_final(self) -> bool:
-        return len(self) == 1
-
-    @property
-    def is_draft(self) -> bool:
-        return len(self) > 1
-
-    @property
-    def final(self) -> int | None:
-        if len(self) == 1:
-            (d,) = self
-            return d
-
-    def __str__(self):
-        return "".join(map(str, self))
+Digits = frozenset[int]
 
 
-class Node(NamedTuple):
-    """Node in a board containing digits
-    Decoupled from board itself
+class Cell(NamedTuple):
+    """A cell of the board together with coords and content.
+    Decoupled from the boards for independent analysis
     """
 
     loc: Loc
-    cell: Cell
+    dgs: Digits = frozenset()
 
-    # the is_ methods are to use as filter(Node.is_draft, nodes)
+    @property
+    def is_empty(self) -> bool:
+        return len(self.dgs) == 0
 
-    @classmethod
-    def is_empty(cls, node: Self) -> bool:
-        return node.cell.is_empty
+    @property
+    def is_final(self) -> bool:
+        return len(self.dgs) == 1
 
-    @classmethod
-    def is_final(cls, node: Self) -> bool:
-        return node.cell.is_final
+    @property
+    def is_draft(self) -> bool:
+        return len(self.dgs) > 1
 
-    @classmethod
-    def is_draft(cls, node: Self) -> bool:
-        return node.cell.is_draft
+    @property
+    def final(self) -> int | None:
+        if len(self.dgs) == 1:
+            (d,) = self.dgs
+            return d
+
+    def __contains__(self, dig: int) -> bool:
+        return dig in self.dgs
 
     def __str__(self):
-        return f"{self.cell}@{self.loc}"
-
-    def __iter__(self):
-        raise TypeError()
+        cont = "".join(map(str, self.dgs))
+        return f"{{{cont}@{self.loc}}}"
 
 
-Transformer = Callable[[Node], Node]
+Transformer = Callable[[Cell], Cell]
 
 
 class Board:
-    """The container of Nodes adressed by Locs"""
+    """The container of cells adressed by Locs"""
+
+    __slots__ = "content"
 
     # storing in row-major order
-    cells: tuple[Cell, ...]
+    content: tuple[Digits, ...]  # note: indexing from 0
 
-    def __init__(self):
-        """Init empty board"""
-        self.cells = tuple(Cell() for _ in range(82))
+    # it's supposed to be immutable
+    def __new__(cls, content: Iterable[Iterable[int]] | None = None):
+        inst = super().__new__(cls)
+        if content is None:
+            inst.content = tuple(Digits() for _ in range(81))
+        else:
+            cont = tuple(map(Digits, content))
+            assert len(cont) == 81
+            inst.content = cont
+        return inst
 
     def __repr__(self) -> str:
-        grid = [repr(cell) + (",\t" if i % 9 else ",\n") for i, cell in enumerate(self.cells, 1)]
+        grid = [repr(cell) + (",\t" if i % 9 else ",\n") for i, cell in enumerate(self.content, 1)]
         return f"Board((\n{''.join(grid)}))"
 
     @classmethod
@@ -107,50 +99,37 @@ class Board:
     def __loc(cls, idx: int) -> Loc:
         return Loc(1 + idx // 9, 1 + idx % 9)
 
-    def __iter__(self) -> Generator[Node]:
-        """iterate all nodes (in storage order)"""
-        for idx, cell in enumerate(self.cells):
-            yield Node(self.__loc(idx), cell)
+    def __iter__(self) -> Generator[Cell]:
+        """iterate all cells (in storage order)"""
+        for idx, cell in enumerate(self.content):
+            yield Cell(self.__loc(idx), cell)
 
-    def get(self, loc: Loc) -> Node:
-        return Node(loc, self.cells[self.__idx(loc)])
+    def get(self, loc: Loc) -> Cell:
+        return Cell(loc, self.content[self.__idx(loc)])
 
-    def slice(self, locs: Iterable[Loc]) -> Iterable[Node]:
+    def slice(self, locs: Iterable[Loc]) -> Iterable[Cell]:
         return (self.get(loc) for loc in locs)
 
-    def __getitem__(self, loc: Loc | Iterable[Loc]) -> Node | Iterable[Node]:
+    def __getitem__(self, loc: Loc | Iterable[Loc]) -> Cell | Iterable[Cell]:
         if isinstance(loc, Loc):
             return self.get(loc)
         else:
             return self.slice(loc)
 
     def __eq__(self, other: Self) -> bool:
-        return all(s == o for s, o in zip(self.cells, other.cells))
+        return self.content == other.content
 
     def __ne__(self, other: Self) -> bool:
         return not (self == other)
 
     @classmethod
-    def replace(cls, orig: Self, loc: Loc, cell: Cell) -> Self:
-        """Replace single cell"""
-
-        def t(node) -> Cell:
-            if node.loc == loc:
-                return cell
-            else:
-                return node.cell
-
-        new = cls()
-        new.cells = tuple(t(node) for node in orig)
-        return new
+    def transform(cls, orig: Self, trans: Transformer) -> Self:
+        """Apply transformer to all cells"""
+        return cls(tuple(trans(cell).dgs for cell in iter(orig)))
 
     @classmethod
-    def transform(cls, orig: Self, trans: Transformer) -> Self:
-        """Apply transformer to all nodes"""
-
-        def t(node) -> Node:
-            return node if node.cell.is_final else trans(node)
-
-        new = cls()
-        new.cells = tuple(Cell(t(node).cell) for node in orig)
-        return new
+    def replace(cls, orig: Self, loc: Loc, repl: Iterable[int]) -> Self:
+        """Replace single cell"""
+        content = list(orig.content)
+        content[cls.__idx(loc)] = Digits(repl)
+        return cls(content)

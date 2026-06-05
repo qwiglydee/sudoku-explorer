@@ -3,39 +3,23 @@ from collections import Counter
 from itertools import chain as iterchain
 from typing import Iterable
 
-from board import DIGITS, Board, Cell, Loc, Node
+from board import Digits, DIGITS, Loc, Board, Cell
 from analytics import Zone
 
 iterflat = iterchain.from_iterable
 
 
-def nonone(obj) -> bool:
-    return obj is not None
-
-
-def nodehave(dig: int):
-    def filt(node: Node):
-        return dig in node.cell
-
-    return filt
-
-
 def diff(b1: Board, b2: Board):
-    new = Board()
-    new.cells = tuple(Cell(set(c1) ^ set(c2)) for c1, c2 in zip(b1.cells, b2.cells))
-    return new
+    return Board((c2 - c1 for c1, c2 in zip(b1.content, b2.content)))
 
 
-def parse(literal: str):
+def bparse(literal: str):
     """Parse string dump row by row:
     spaces are ignored
     dots make empty cells
     """
     init = re.sub(r"\s+", "", literal)
-    cells = [Cell((int(d),)) if d != "." else Cell() for d in init]
-    board = Board()
-    board.cells = tuple(cells)
-    return board
+    return Board({int(d)} if d != "." else {} for d in init)
 
 
 def bprint(board: Board):
@@ -48,7 +32,7 @@ def bprint(board: Board):
             c0 = c // 3
             ci = c % 3
             loc = Loc(1 + r0, 1 + c0)
-            cell = board.get(loc).cell
+            cell = board.get(loc)
             d = ci % 3 + 1 + 3 * (ri % 3)
             end = "\n" if c1 == 27 else "║" if c1 % 9 == 0 else "│" if c1 % 3 == 0 else ""
             print(d if d in cell else " ", end=end)
@@ -61,40 +45,41 @@ def bprint(board: Board):
             print("───┼───┼───╫───┼───┼───╫───┼───┼───")
 
 
-def count_finals(nodes: Iterable[Node]) -> Counter:
-    return Counter(n.cell.final for n in filter(Node.is_final, nodes))
-
-
-def count_digits(nodes: Iterable[Node]):
-    return Counter(iterflat(n.cell for n in nodes))
-
-
-def fillempty(node: Node):
-    if node.cell.is_empty:
-        return Node(node.loc, Cell(DIGITS))
-    else:
-        return node
-
-
-def neighborhood(board: Board, zone: Zone) -> Iterable[Node]:
+def neighborhood(board: Board, zone: Zone | Iterable[Loc]) -> Iterable[Cell]:
     return board.slice(iter(zone))
 
 
-def draftborhood(board: Board, zone: Zone) -> Iterable[Node]:
-    return filter(Node.is_draft, board.slice(iter(zone)))
+def draftborhood(board: Board, zone: Zone | Iterable[Loc]) -> Iterable[Cell]:
+    return filter(lambda c: c.is_draft, board.slice(iter(zone)))
 
 
-def finalborhood(board: Board, zone: Zone) -> Iterable[Node]:
-    return filter(Node.is_final, board.slice(iter(zone)))
+def draftboard(board: Board) -> Iterable[Cell]:
+    return filter(lambda c: c.is_draft, iter(board))
+
+
+def finalborhood(board: Board, zone: Zone | Iterable[Loc]) -> Iterable[Cell]:
+    return filter(lambda c: c.is_final, board.slice(iter(zone)))
+
+
+def count_finals(cells: Board | Iterable[Cell]) -> Counter[int]:
+    return Counter(c.final for c in iter(cells) if c.is_final)  # type: ignore impossible None's
+
+
+def count_digits(cells: Board | Iterable[Cell]) -> Counter[int]:
+    return Counter(iterflat(c.dgs for c in iter(cells)))
+
+
+def fillempty(cell: Cell):
+    return Cell(cell.loc, Digits(DIGITS)) if cell.is_empty else cell
 
 
 def validate(board: Board):
-    if not all(Node.is_final(n) for n in board):
+    if not all(c.is_final for c in iter(board)):
         return "INCOMPLETE"
 
     def fulfiled(zone: Zone):
-        finalborhood = tuple(filter(Node.is_final, neighborhood(board, zone)))
-        return set(n.cell.final for n in finalborhood) == DIGITS
+        finals = finalborhood(board, zone)
+        return set(c.final for c in finals) == DIGITS
 
     if all(map(fulfiled, Zone.All())):
         return "SOLVED"

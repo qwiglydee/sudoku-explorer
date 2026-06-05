@@ -3,7 +3,7 @@ from itertools import chain as iterchain, product as iterprod
 from types import EllipsisType
 from typing import Iterable, Iterator, NamedTuple, Self
 
-from board import DIGITS, Board, Loc, Node
+from board import Digits, DIGITS, Loc, Cell, Board
 
 iterflat = iterchain.from_iterable
 
@@ -143,15 +143,15 @@ class Zone(NamedTuple):
         return sum(a is not EVERY for a in (self.blk, self.row, self.col)) == 1
 
     @classmethod
-    def of(cls, what: Node | Loc | Self):
+    def of(cls, what: Self | Loc | Cell):
         if isinstance(what, cls):
             return what
         if isinstance(what, Loc):
             return cls(Topo.blk4loc(what.row, what.col), what.row, what.col)
-        if isinstance(what, Node):
+        if isinstance(what, Cell):
             loc = what.loc
             return cls(Topo.blk4loc(loc.row, loc.col), loc.row, loc.col)
-        raise ValueError()
+        raise TypeError()
 
     def loc(self) -> Loc:
         assert isinstance(self.row, int) and isinstance(self.col, int)
@@ -374,10 +374,10 @@ class Zone(NamedTuple):
         rstr = "…" if self.row is EVERY else f"r{self.row}"
         cstr = "…" if self.col is EVERY else f"c{self.col}"
         if self.is_cellular:
-            return f"[{rstr}{cstr}]"
+            return f"{rstr}{cstr}"
         else:
             bstr = "…" if self.blk is EVERY else f"b{self.blk}"
-            return f"[{bstr}{rstr}{cstr}]"
+            return f"{bstr}{rstr}{cstr}"
 
 
 def visibility(z1: Zone, z2: Zone):
@@ -395,7 +395,7 @@ def allvisible(z1: Zone, z2: Zone) -> set[Zone]:
 
 
 class Target(NamedTuple):
-    """A draft involved in some relation"""
+    """A single-digit draft placed in some zone"""
 
     zone: Zone
     dig: int
@@ -405,16 +405,17 @@ class Target(NamedTuple):
         return self.zone.is_cellular
 
     @classmethod
-    def to(cls, where: Loc | Zone | Node, what: int) -> Self:
+    def to(cls, where: Loc | Zone | Cell, what: int) -> Self:
         if isinstance(where, Zone):
             return cls(where, what)
         elif isinstance(where, Loc):
             return cls(Zone.L(where.row, where.col), what)
-        elif isinstance(where, Node):
+        elif isinstance(where, Cell):
             return cls(Zone.L(where.loc.row, where.loc.col), what)
+        raise TypeError()
 
     def __str__(self):
-        return f"{self.dig}@{self.zone}"
+        return f"{self.dig}{self.zone}"
 
 
 class Link(tuple[Target, Target]):

@@ -2,7 +2,7 @@ from typing import Any, Callable
 from collections.abc import Generator, AsyncGenerator
 from dataclasses import dataclass
 
-from board import Cell, Board, Node
+from board import Digits, Loc, Cell, Board
 from analytics import Target
 from utils import validate
 
@@ -16,11 +16,11 @@ class Resolution:
         """Removing castaways and isolating all finals"""
 
         def remove(trg):
-            def trans(node: Node):
-                if node.loc in trg.zone:
-                    return Node(node.loc, Cell(node.cell - {trg.dig}))
+            def trans(cell: Cell):
+                if cell.loc in trg.zone:
+                    return Cell(cell.loc, Digits(cell.dgs - {trg.dig}))
                 else:
-                    return node
+                    return cell
 
             return trans
 
@@ -31,7 +31,7 @@ class Resolution:
         if self.finals:
             assert all(t.is_cellular for t in self.finals)
             for trg in self.finals:
-                current = Board.replace(current, trg.zone.loc(), Cell({trg.dig}))
+                current = Board.replace(current, trg.zone.loc(), Digits({trg.dig}))
 
         return current
 
@@ -97,9 +97,9 @@ async def solve_logging(initial: Board, /, *resolvers: Resolver, filtout: set[st
             continue
         print(f"{iterations:03d} {resolver.__name__}", end=": ")
         if resolution.castaways:
-            print("-={", " ".join(map(str, resolution.castaways)), "}", end=" ")
+            print("-= {", " ".join(map(str, resolution.castaways)), "}", end=" ")
         if resolution.finals:
-            print(":={", " ".join(map(str, resolution.finals)), "}", end=" ")
+            print(":= {", " ".join(map(str, resolution.finals)), "}", end=" ")
         if resolution.highlights:
             if "zone" in resolution.highlights:
                 print("@", resolution.highlights["zone"], end=" ")

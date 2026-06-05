@@ -4,7 +4,7 @@ from typing import Iterable, NamedTuple, Self
 
 from ipycanvas import Canvas, MultiCanvas, hold_canvas
 
-from board import Board, Loc
+from board import Loc, Cell, Board
 from palette import pick_color
 
 CANVAS_SIZE = 640
@@ -141,13 +141,13 @@ class SudokuCanvas(MultiCanvas):
 
         canvas.clear()
         with hold_canvas():
-            for node in board:
-                if node.cell.is_empty:
+            for cell in iter(board):
+                if cell.is_empty:
                     continue
-                for dig in node.cell:
-                    p = XY.add(P0, XY.ofsegm(node.loc, dig))
+                for dig in cell.dgs:
+                    p = XY.add(P0, XY.ofsegm(cell.loc, dig))
                     canvas.font = FONT
-                    if node.cell.is_final:
+                    if cell.is_final:
                         canvas.fill_style = FONT_COLORS["FINAL"]
                     elif dig in highlight:
                         canvas.fill_style = FONT_COLORS["HIGH"]
