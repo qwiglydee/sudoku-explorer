@@ -3,35 +3,35 @@ from collections.abc import Generator, AsyncGenerator
 from dataclasses import dataclass
 
 from board import Digits, Loc, Cell, Board
-from analytics import Target
+from analytics import Node
 from utils import validate
 
 
 @dataclass
 class Resolution:
-    castaways: set[Target] | None = None
-    finals: set[Target] | None = None
+    castaways: set[Node] | None = None
+    finals: set[Node] | None = None
 
     def apply(self, current: Board) -> Board:
         """Removing castaways and isolating all finals"""
 
-        def remove(trg):
+        def remove(node):
             def trans(cell: Cell):
-                if cell.loc in trg.zone:
-                    return Cell(cell.loc, Digits(cell.dgs - {trg.dig}))
+                if cell.loc in node.zone:
+                    return Cell(cell.loc, Digits(cell.dgs - {node.dig}))
                 else:
                     return cell
 
             return trans
 
         if self.castaways:
-            for trg in self.castaways:
-                current = Board.transform(current, remove(trg))
+            for node in self.castaways:
+                current = Board.transform(current, remove(node))
 
         if self.finals:
             assert all(t.is_cellular for t in self.finals)
-            for trg in self.finals:
-                current = Board.replace(current, trg.zone.loc(), Digits({trg.dig}))
+            for node in self.finals:
+                current = Board.replace(current, node.zone.loc(), Digits({node.dig}))
 
         return current
 

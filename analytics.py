@@ -3,7 +3,7 @@ from itertools import chain as iterchain, product as iterprod
 from types import EllipsisType
 from typing import Iterable, Iterator, NamedTuple, Self
 
-from board import Digits, DIGITS, Loc, Cell, Board
+from board import Loc, Cell
 
 iterflat = iterchain.from_iterable
 
@@ -394,8 +394,8 @@ def allvisible(z1: Zone, z2: Zone) -> set[Zone]:
     return intervis  # type: ignore
 
 
-class Target(NamedTuple):
-    """A single-digit draft placed in some zone"""
+class Node(NamedTuple):
+    """A single-digit draft placed in some locality"""
 
     zone: Zone
     dig: int
@@ -405,7 +405,7 @@ class Target(NamedTuple):
         return self.zone.is_cellular
 
     @classmethod
-    def to(cls, where: Loc | Zone | Cell, what: int) -> Self:
+    def at(cls, where: Loc | Zone | Cell, what: int) -> Self:
         if isinstance(where, Zone):
             return cls(where, what)
         elif isinstance(where, Loc):
@@ -418,8 +418,8 @@ class Target(NamedTuple):
         return f"{self.dig}{self.zone}"
 
 
-class Link(tuple[Target, Target]):
-    """Ordered immutable pair of targets"""
+class Link(tuple[Node, Node]):
+    """Ordered immutable pair of nodes"""
 
     # ordered for chains, unordered for comparision
 
@@ -474,12 +474,12 @@ class Chain(tuple[Link, ...]):
         assert chain[0][0] == links[-1][-1]
         return cls((*links, *chain))
 
-    def anchors(self) -> set[Target]:
+    def anchors(self) -> set[Node]:
         """All anchor points in the chain"""
         return set(iterflat(self))
 
     @property
-    def edges(self) -> tuple[Target, Target]:
+    def edges(self) -> tuple[Node, Node]:
         return (self[0][0], self[-1][1])
 
     @property
