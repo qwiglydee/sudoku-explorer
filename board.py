@@ -12,18 +12,6 @@ class Loc(NamedTuple):
     row: int
     col: int
 
-    @property
-    def blk(self):
-        br = (self.row - 1) // 3
-        bc = (self.col - 1) // 3
-        return 1 + br * 3 + bc
-
-    @classmethod
-    def of_blk(cls, blk: int):
-        """First row/col in a block"""
-        b = blk - 1
-        return cls(1 + 3 * (b // 3), 1 + 3 * (b % 3))
-
     def __str__(self) -> str:
         return f"r{self.row}c{self.col}"
 
@@ -37,7 +25,7 @@ class Cell(NamedTuple):
     """
 
     loc: Loc
-    dgs: Digits = frozenset()
+    dgs: Digits
 
     @property
     def is_empty(self) -> bool:

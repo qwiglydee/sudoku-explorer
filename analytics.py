@@ -12,62 +12,62 @@ EVERY = Ellipsis
 
 
 class Topo:
-    """Relations between blocks/rows/cols
+    """Relations between boxes/rows/cols
 
     Defines topology of the board
     """
 
     IDX = (1, 2, 3, 4, 5, 6, 7, 8, 9)
 
-    blks = IDX
+    boxs = IDX
     rows = IDX
     cols = IDX
 
     @staticmethod
-    def blk4loc(row: int, col: int) -> int:
+    def box4loc(row: int, col: int) -> int:
         assert 1 <= row <= 9 and 1 <= col <= 9
         r0 = (row - 1) // 3 * 3
         c0 = (col - 1) // 3
         return r0 + c0 + 1
 
     @staticmethod
-    def blk4row(row: int) -> tuple[int, int, int]:
+    def box4row(row: int) -> tuple[int, int, int]:
         assert 1 <= row <= 9
         b0 = (row - 1) // 3 * 3
         return (b0 + 1, b0 + 2, b0 + 3)
 
     @staticmethod
-    def blk4col(col: int) -> tuple[int, int, int]:
+    def box4col(col: int) -> tuple[int, int, int]:
         assert 1 <= col <= 9
         b0 = (col - 1) // 3
         return (b0 + 1, b0 + 4, b0 + 7)
 
     @staticmethod
-    def row4blk(blk: int) -> tuple[int, int, int]:
-        assert 1 <= blk <= 9
-        r0 = (blk - 1) // 3 * 3
+    def row4box(box: int) -> tuple[int, int, int]:
+        assert 1 <= box <= 9
+        r0 = (box - 1) // 3 * 3
         return (r0 + 1, r0 + 2, r0 + 3)
 
     @staticmethod
-    def col4blk(blk: int) -> tuple[int, int, int]:
-        assert 1 <= blk <= 9
-        c0 = (blk - 1) % 3 * 3
+    def col4box(box: int) -> tuple[int, int, int]:
+        assert 1 <= box <= 9
+        c0 = (box - 1) % 3 * 3
         return (c0 + 1, c0 + 2, c0 + 3)
 
     @staticmethod
-    def valid(blk: int | Every, row: int | Every, col: int | Every) -> bool:
+    def valid(box: int | Every, row: int | Every, col: int | Every) -> bool:
         # hard constraints
-        assert blk is EVERY or 1 <= blk <= 9  # type: ignore
+        assert box is EVERY or 1 <= box <= 9  # type: ignore
         assert row is EVERY or 1 <= row <= 9  # type: ignore
         assert col is EVERY or 1 <= col <= 9  # type: ignore
 
         # soft constraints
         try:
-            if isinstance(blk, int):
+            if isinstance(box, int):
                 if isinstance(row, int):
-                    assert row in Topo.row4blk(blk)
+                    assert row in Topo.row4box(box)
                 if isinstance(col, int):
-                    assert col in Topo.col4blk(blk)
+                    assert col in Topo.col4box(box)
             else:
                 assert row is EVERY or col is EVERY
             return True
@@ -82,14 +82,14 @@ class Zone(NamedTuple):
     The class implements set-like operations
     """
 
-    blk: int | EllipsisType
+    box: int | EllipsisType
     row: int | EllipsisType
     col: int | EllipsisType
 
     @classmethod
-    def B(cls, blk: int) -> Self:
-        assert 1 <= blk <= 9
-        return cls(blk, ..., ...)
+    def B(cls, box: int) -> Self:
+        assert 1 <= box <= 9
+        return cls(box, ..., ...)
 
     @classmethod
     def R(cls, row: int) -> Self:
@@ -104,11 +104,11 @@ class Zone(NamedTuple):
     @classmethod
     def L(cls, row: int, col: int) -> Self:
         assert 1 <= row <= 9 and 1 <= col <= 9
-        return cls(Topo.blk4loc(row, col), row, col)
+        return cls(Topo.box4loc(row, col), row, col)
 
     @classmethod
-    def Allblk(cls) -> Iterable[Self]:
-        return (cls(b, ..., ...) for b in Topo.blks)
+    def Allbox(cls) -> Iterable[Self]:
+        return (cls(b, ..., ...) for b in Topo.boxs)
 
     @classmethod
     def Allrow(cls) -> Iterable[Self]:
@@ -120,19 +120,19 @@ class Zone(NamedTuple):
 
     @classmethod
     def All(cls) -> Iterable[Self]:
-        yield from cls.Allblk()
+        yield from cls.Allbox()
         yield from cls.Allrow()
         yield from cls.Allcol()
 
-    # invalid blk may occur because of all the mess around
+    # invalid box may occur because of all the mess around
 
     def valid(self) -> bool:
-        return Topo.valid(self.blk, self.row, self.col)
+        return Topo.valid(self.box, self.row, self.col)
 
     @property
     def is_everything(self):
         # it may appear in some calculations
-        return self.blk is EVERY and self.row is EVERY and self.col is EVERY
+        return self.box is EVERY and self.row is EVERY and self.col is EVERY
 
     @property
     def is_cellular(self):
@@ -140,17 +140,17 @@ class Zone(NamedTuple):
 
     @property
     def is_major(self):
-        return sum(a is not EVERY for a in (self.blk, self.row, self.col)) == 1
+        return sum(a is not EVERY for a in (self.box, self.row, self.col)) == 1
 
     @classmethod
     def of(cls, what: Self | Loc | Cell):
         if isinstance(what, cls):
             return what
         if isinstance(what, Loc):
-            return cls(Topo.blk4loc(what.row, what.col), what.row, what.col)
+            return cls(Topo.box4loc(what.row, what.col), what.row, what.col)
         if isinstance(what, Cell):
             loc = what.loc
-            return cls(Topo.blk4loc(loc.row, loc.col), loc.row, loc.col)
+            return cls(Topo.box4loc(loc.row, loc.col), loc.row, loc.col)
         raise TypeError()
 
     def loc(self) -> Loc:
@@ -174,7 +174,7 @@ class Zone(NamedTuple):
 
         def eqe(cell, zone):
             # if a cellular zone matches some another zone
-            return (zone.blk == EVERY or zone.blk == cell.blk) and (zone.row == EVERY or zone.row == cell.row) and (zone.col is EVERY or zone.col == cell.col)
+            return (zone.box == EVERY or zone.box == cell.box) and (zone.row == EVERY or zone.row == cell.row) and (zone.col is EVERY or zone.col == cell.col)
 
         if zone1.is_cellular:
             return zone1 if eqe(zone1, zone2) else None
@@ -185,11 +185,11 @@ class Zone(NamedTuple):
             return cls(b, r, c) if Topo.valid(b, r, c) else None
 
         # TODO: optimize the shit
-        match zone1.blk, zone1.row, zone1.col, zone2.blk, zone2.row, zone2.col:
+        match zone1.box, zone1.row, zone1.col, zone2.box, zone2.row, zone2.col:
             case Every(), int(r1), Every(), Every(), Every(), int(c2):  # R & C
-                return cls(Topo.blk4loc(r1, c2), r1, c2)
+                return cls(Topo.box4loc(r1, c2), r1, c2)
             case Every(), Every(), int(c1), Every(), int(r2), Every():  # C & R
-                return cls(Topo.blk4loc(r2, c1), r2, c1)
+                return cls(Topo.box4loc(r2, c1), r2, c1)
             case int(b1), Every(), Every(), Every(), int(r2), Every():  # B & R
                 return validated(b1, r2, ...)
             case int(b1), Every(), Every(), Every(), Every(), int(c2):  # B & C
@@ -245,7 +245,7 @@ class Zone(NamedTuple):
         if self.is_major:
             return self == other
 
-        match self.blk, self.row, self.col, other.blk, other.row, other.col:
+        match self.box, self.row, self.col, other.box, other.row, other.col:
             case int(b1), _, _, int(b2), Every(), Every():
                 return b1 == b2
             case _, int(r1), _, Every(), int(r2), Every():
@@ -262,7 +262,7 @@ class Zone(NamedTuple):
         """
         assert zone.valid()
 
-        match zone.blk, zone.row, zone.col:
+        match zone.box, zone.row, zone.col:
             case int(b), int(r), Every():
                 yield cls(b, ..., ...)
                 yield cls(..., r, ...)
@@ -281,20 +281,20 @@ class Zone(NamedTuple):
         """
         assert zone.valid()
 
-        match zone.blk, zone.row, zone.col:
+        match zone.box, zone.row, zone.col:
             case int(b), Every(), Every():
-                yield from (cls(..., r, ...) for r in Topo.row4blk(b))
-                yield from (cls(..., ..., c) for c in Topo.col4blk(b))
+                yield from (cls(..., r, ...) for r in Topo.row4box(b))
+                yield from (cls(..., ..., c) for c in Topo.col4box(b))
             case Every(), int(r), Every():
-                yield from (cls(b, ..., ...) for b in Topo.blk4row(r))
+                yield from (cls(b, ..., ...) for b in Topo.box4row(r))
                 yield from (cls(..., ..., c) for c in Topo.cols)
             case Every(), Every(), int(c):
-                yield from (cls(b, ..., ...) for b in Topo.blk4col(c))
+                yield from (cls(b, ..., ...) for b in Topo.box4col(c))
                 yield from (cls(..., r, ...) for r in Topo.rows)
             case int(b), int(r), Every():
-                yield from (cls(..., ..., c) for c in Topo.col4blk(b))
+                yield from (cls(..., ..., c) for c in Topo.col4box(b))
             case int(b), Every(), int(c):
-                yield from (cls(..., r, ...) for r in Topo.row4blk(b))
+                yield from (cls(..., r, ...) for r in Topo.row4box(b))
 
     @classmethod
     def aside(cls, zone: Self, subzone: Self) -> Iterable[Self]:
@@ -306,21 +306,21 @@ class Zone(NamedTuple):
         assert majzone.valid() and majzone.is_major
 
         # quick stuff without nested iterations and redundant overlappency
-        match majzone.blk, majzone.row, majzone.col:
+        match majzone.box, majzone.row, majzone.col:
             case int(b), Every(), Every():
-                yield from (cls(b, r, ...) for r in Topo.row4blk(b))
-                yield from (cls(b, ..., c) for c in Topo.col4blk(b))
+                yield from (cls(b, r, ...) for r in Topo.row4box(b))
+                yield from (cls(b, ..., c) for c in Topo.col4box(b))
             case Every(), int(r), Every():
-                yield from (cls(b, r, ...) for b in Topo.blk4row(r))
+                yield from (cls(b, r, ...) for b in Topo.box4row(r))
             case Every(), Every(), int(c):
-                yield from (cls(b, ..., c) for b in Topo.blk4col(c))
+                yield from (cls(b, ..., c) for b in Topo.box4col(c))
 
     def __iter__(self) -> Iterator[Loc]:
         """Iterate all cell locations in the zone"""
 
         assert self.valid()
 
-        match self.blk, self.row, self.col:
+        match self.box, self.row, self.col:
             case Every(), Every(), Every():  # WHY ?
                 yield from (Loc(r, c) for r in Topo.rows for c in Topo.cols)
             case _, int(r), int(c):
@@ -330,28 +330,28 @@ class Zone(NamedTuple):
             case Every(), Every(), int(c):
                 yield from (Loc(r, c) for r in Topo.rows)
             case int(b), Every(), Every():
-                yield from (Loc(r, c) for r in Topo.row4blk(b) for c in Topo.col4blk(b))
+                yield from (Loc(r, c) for r in Topo.row4box(b) for c in Topo.col4box(b))
             case int(b), int(r), Every():
-                yield from (Loc(r, c) for c in Topo.col4blk(b))
+                yield from (Loc(r, c) for c in Topo.col4box(b))
             case int(b), Every(), int(c):
-                yield from (Loc(r, c) for r in Topo.row4blk(b))
+                yield from (Loc(r, c) for r in Topo.row4box(b))
 
     def __contains__(self, loc: Loc) -> bool:
         """If the zone contains specific location"""
 
-        match self.blk, self.row, self.col:
+        match self.box, self.row, self.col:
             case Every(), Every(), Every():
                 return True
             case int(b), Every(), Every():
-                return loc.row in Topo.row4blk(b) and loc.col in Topo.col4blk(b)
+                return loc.row in Topo.row4box(b) and loc.col in Topo.col4box(b)
             case Every(), int(r), Every():
                 return loc.row == r
             case Every(), Every(), int(c):
                 return loc.col == c
             case int(b), int(r), Every():
-                return loc.row == r and loc.col in Topo.col4blk(b)
+                return loc.row == r and loc.col in Topo.col4box(b)
             case int(b), Every(), int(c):
-                return loc.col == c and loc.row in Topo.row4blk(b)
+                return loc.col == c and loc.row in Topo.row4box(b)
             case _, int(r), int(c):
                 return loc.row == r and loc.col == c
 
@@ -376,7 +376,7 @@ class Zone(NamedTuple):
         if self.is_cellular:
             return f"{rstr}{cstr}"
         else:
-            bstr = "…" if self.blk is EVERY else f"b{self.blk}"
+            bstr = "…" if self.box is EVERY else f"b{self.box}"
             return f"{bstr}{rstr}{cstr}"
 
 
