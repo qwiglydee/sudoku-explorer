@@ -177,7 +177,7 @@ class SudokuCanvas(MultiCanvas):
         length = max(1, math.ceil(XY.dist(p1, p2) / XY.CELL))
 
         if style == "HARD":
-            points = tuple(split_line(p1, p2, n=1 + length // 2))
+            points = tuple(split_line(p1, p2, n=2))
             points = tuple(jig_line(points, XY.SEGM))
             canvas.set_line_dash([])
             stroke_quadsmooth_path(canvas, points)

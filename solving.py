@@ -1,6 +1,7 @@
+from collections import defaultdict
 from typing import Any, Callable
 from collections.abc import Generator, AsyncGenerator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from board import Digits, Loc, Cell, Board
 from analytics import Node
@@ -9,8 +10,8 @@ from utils import validate
 
 @dataclass
 class Resolution:
-    castaways: set[Node] | None = None
-    finals: set[Node] | None = None
+    castaways: set[Node] = field(default_factory=set)
+    finals: set[Node] = field(default_factory=set)
 
     def apply(self, current: Board) -> Board:
         """Removing castaways and isolating all finals"""
@@ -36,7 +37,7 @@ class Resolution:
         return current
 
     # for inspecting
-    highlights: dict[str, Any] | None = None
+    highlights: dict[str, Any] = field(default_factory=dict)
 
 
 Resolving = Generator[Resolution]

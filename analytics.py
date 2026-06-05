@@ -355,6 +355,14 @@ class Zone(NamedTuple):
             case _, int(r), int(c):
                 return loc.row == r and loc.col == c
 
+    def __len__(self):
+        if self.is_cellular:
+            return 1
+        elif self.is_major:
+            return 9
+        else:
+            return 3
+
     def __le__(self, other: Self):
         return self.issubzone(other)
 
@@ -416,6 +424,26 @@ class Node(NamedTuple):
 
     def __str__(self):
         return f"{self.dig}{self.zone}"
+
+
+class Group(NamedTuple):
+    zones: tuple[Zone, Zone]
+    dig: int
+    cells: frozenset[Cell]
+
+    def cross(self):
+        return self.zones[0] & self.zones[1]
+
+    def node(self):
+        if len(self.cells) == 1:
+            [lonesome] = self.cells
+            return Node.at(lonesome, self.dig)
+        elif len(self.cells) > 1:
+            subzone = self.cross()
+            assert subzone is not None
+            return Node.at(subzone, self.dig)
+        else:
+            raise ValueError()
 
 
 class Link(tuple[Node, Node]):
