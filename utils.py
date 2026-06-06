@@ -4,7 +4,7 @@ from itertools import chain as iterchain
 from typing import Iterable
 
 from board import Digits, DIGITS, Loc, Board, Cell
-from analytics import Zone
+from topology import Zone
 
 iterflat = iterchain.from_iterable
 

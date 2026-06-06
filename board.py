@@ -1,3 +1,9 @@
+"""Structures to hold and hanle puzzle state.
+All supposed to be immune, comparable and hashable.
+
+Apparently, this works for any solving approach.
+"""
+
 from collections.abc import Generator, Iterable
 from typing import Callable, NamedTuple, Self
 
@@ -7,8 +13,6 @@ RANGE81 = tuple(range(1, 82))
 
 
 class Loc(NamedTuple):
-    """Location of a cell in a board"""
-
     row: int
     col: int
 
@@ -20,10 +24,6 @@ Digits = frozenset[int]
 
 
 class Cell(NamedTuple):
-    """A cell of the board together with coords and content.
-    Decoupled from the boards for independent analysis
-    """
-
     loc: Loc
     dgs: Digits
 
@@ -57,8 +57,6 @@ Transformer = Callable[[Cell], Cell]
 
 
 class Board:
-    """The container of cells adressed by Locs"""
-
     __slots__ = "content"
 
     # storing in row-major order

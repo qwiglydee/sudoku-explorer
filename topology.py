@@ -1,3 +1,5 @@
+"""Structures for topological analysis"""
+
 from functools import reduce
 from itertools import chain as iterchain, product as iterprod
 from types import EllipsisType
@@ -287,10 +289,8 @@ class Zone(NamedTuple):
                 yield from (cls(..., ..., c) for c in Topo.col4box(b))
             case Every(), int(r), Every():
                 yield from (cls(b, ..., ...) for b in Topo.box4row(r))
-                yield from (cls(..., ..., c) for c in Topo.cols)
             case Every(), Every(), int(c):
                 yield from (cls(b, ..., ...) for b in Topo.box4col(c))
-                yield from (cls(..., r, ...) for r in Topo.rows)
             case int(b), int(r), Every():
                 yield from (cls(..., ..., c) for c in Topo.col4box(b))
             case int(b), Every(), int(c):
@@ -379,10 +379,13 @@ class Zone(NamedTuple):
         return self.__class__.intersection(self, other)
 
     def __str__(self):
-        bstr = "…" if self.box is EVERY else f"b{self.box}"
         rstr = "…" if self.row is EVERY else f"r{self.row}"
         cstr = "…" if self.col is EVERY else f"c{self.col}"
-        return f"{bstr}{rstr}{cstr}"
+        if self.is_cellular:
+            return f"{rstr}{cstr}"
+        else:
+            bstr = "…" if self.box is EVERY else f"b{self.box}"
+            return f"{bstr}{rstr}{cstr}"
 
 
 def visibility(z1: Zone, z2: Zone):

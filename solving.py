@@ -1,15 +1,20 @@
-from collections import defaultdict
+"""Generic iterative solving tools
+Using async generators to integrate with interactive scripts/gui
+"""
+
 from typing import Any, Callable
 from collections.abc import Generator, AsyncGenerator
 from dataclasses import dataclass, field
 
-from board import Digits, Loc, Cell, Board
-from analytics import Node
+from board import Digits, Cell, Board
+from topology import Node
 from utils import validate
 
 
 @dataclass
 class Resolution:
+    """Single move of solving"""
+
     castaways: set[Node] = field(default_factory=set)
     finals: set[Node] = field(default_factory=set)
 

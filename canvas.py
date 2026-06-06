@@ -1,3 +1,5 @@
+"""Canvas widget to draw board"""
+
 import math
 import random
 from typing import Iterable, NamedTuple, Self
@@ -10,7 +12,7 @@ from palette import pick_color
 CANVAS_SIZE = 640
 FONT_SIZE = 12
 FONT = f"{FONT_SIZE}px sans-serif"
-FONT_COLORS = {"": "#000000", "HIGH": "#FFFFFF", "FINAL": "#404040"}
+FONT_COLORS = {"": "#000000", "HIGH": "#FFFFFF", "FINAL": "#606060"}
 BG_COLOR = "#808080"
 
 
@@ -205,13 +207,13 @@ def jig_line(points: XYs, maxoffset: float) -> Iterable[XY]:
     """Shift internal points to ±offset perpendicular to main line"""
 
     lng = XY.dist(points[0], points[-1])
-    dir = XY((points[-1].x - points[0].x) / lng, (points[-1].y - points[0].y) / lng)
-    tng = XY(-dir.y, dir.x)
+    tng = XY((points[-1].x - points[0].x) / lng, (points[-1].y - points[0].y) / lng)
+    nrm = XY(-tng.y, tng.x)
 
     yield points[0]
     for p in points[1:-1]:
         offset = random.uniform(-maxoffset, +maxoffset)
-        yield XY(p.x + tng.x * offset, p.y + tng.y * offset)
+        yield XY(p.x + nrm.x * offset, p.y + nrm.y * offset)
     yield points[-1]
 
 
