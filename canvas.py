@@ -45,7 +45,7 @@ class XY(NamedTuple):
     @classmethod
     def ofcell(cls, loc: Loc) -> Self:
         """top-left coords of a cell"""
-        return cls((loc.col - 1) * cls.CELL, (loc.row - 1) * cls.CELL)
+        return cls((loc.c - 1) * cls.CELL, (loc.r - 1) * cls.CELL)
 
     def loc(self) -> Loc:
         """map the xy to a cell"""
@@ -146,7 +146,7 @@ class SudokuCanvas(MultiCanvas):
             for cell in iter(board):
                 if cell.is_empty:
                     continue
-                for dig in cell.dgs:
+                for dig in cell.digits:
                     p = XY.add(P0, XY.ofsegm(cell.loc, dig))
                     canvas.font = FONT
                     if cell.is_final:

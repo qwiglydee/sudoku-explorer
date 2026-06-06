@@ -8,7 +8,7 @@ No guarentee it's solvable or uniq
 import random
 
 from board import DIGITS, Loc, Board
-from topology import Topo
+import coords
 
 Values = list[set[int]]
 
@@ -32,11 +32,11 @@ def pick(values: set[int]):
 
 units = {
     Loc(row, col): [
-        set(Loc(r, c) for r in Topo.row4box(box) for c in Topo.col4box(box)),
-        set(Loc(row, c) for c in Topo.IDX),
-        set(Loc(r, col) for r in Topo.IDX),
+        set(Loc(r, c) for r in coords.row4box(box) for c in coords.col4box(box)),
+        set(Loc(row, c) for c in coords.POS),
+        set(Loc(r, col) for r in coords.POS),
     ]
-    for box, row, col in Topo.all()
+    for box, row, col in coords.all()
 }
 
 peers = {loc: (locs[0] | locs[1] | locs[2]) - {loc} for loc, locs in units.items()}
@@ -53,9 +53,9 @@ def generate(N=17) -> Values | None:
     """Make a random puzzle with N or more assignments. Restart on contradictions.
     Note the resulting puzzle is not guaranteed to be solvable, but empirically
     about 99.8% of them are solvable. Some have multiple solutions."""
-    values = [set(DIGITS) for _ in Topo.all()]
+    values = [set(DIGITS) for _ in coords.all()]
 
-    locs = [Loc(r, c) for b, r, c in Topo.all()]
+    locs = [Loc(r, c) for b, r, c in coords.all()]
     random.shuffle(locs)
 
     for loc in locs:

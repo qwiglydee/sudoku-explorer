@@ -52,7 +52,7 @@ def picture(board: Board) -> str:
         if cell.is_virgin:
             return "."
         else:
-            return "".join(map(str, sorted(cell.dgs)))
+            return "".join(map(str, sorted(cell.digits)))
 
     maxwidth = max(len(val(cell)) for cell in board)
     dash1 = "─" * (maxwidth * 3 + 2)
@@ -88,7 +88,7 @@ def count_finals(cells: Board | Iterable[Cell]) -> Counter[int]:
 
 
 def count_digits(cells: Board | Iterable[Cell]) -> Counter[int]:
-    return Counter(iterflat(c.dgs for c in iter(cells)))
+    return Counter(iterflat(c.digits for c in iter(cells)))
 
 
 def fillempty(cell: Cell):

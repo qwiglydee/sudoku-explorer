@@ -1,4 +1,4 @@
-"""Structures for topological analysis"""
+"""Structures for coordslogical analysis"""
 
 from functools import reduce
 from itertools import chain as iterchain, product as iterprod
@@ -6,6 +6,7 @@ from types import EllipsisType
 from typing import Iterable, Iterator, NamedTuple, Self
 
 from board import Loc, Cell
+import coords
 
 iterflat = iterchain.from_iterable
 
@@ -13,72 +14,24 @@ Every = EllipsisType
 EVERY = Ellipsis
 
 
-class Topo:
-    """Relations between boxes/rows/cols
+def coords_valid(box: int | Every, row: int | Every, col: int | Every) -> bool:
+    # hard constraints
+    assert box is EVERY or 1 <= box <= 9  # type: ignore
+    assert row is EVERY or 1 <= row <= 9  # type: ignore
+    assert col is EVERY or 1 <= col <= 9  # type: ignore
 
-    Defines topology of the board
-    """
-
-    IDX = (1, 2, 3, 4, 5, 6, 7, 8, 9)
-
-    boxs = IDX
-    rows = IDX
-    cols = IDX
-
-    @staticmethod
-    def box4loc(row: int, col: int) -> int:
-        assert 1 <= row <= 9 and 1 <= col <= 9
-        r0 = (row - 1) // 3 * 3
-        c0 = (col - 1) // 3
-        return r0 + c0 + 1
-
-    @staticmethod
-    def box4row(row: int) -> tuple[int, int, int]:
-        assert 1 <= row <= 9
-        b0 = (row - 1) // 3 * 3
-        return (b0 + 1, b0 + 2, b0 + 3)
-
-    @staticmethod
-    def box4col(col: int) -> tuple[int, int, int]:
-        assert 1 <= col <= 9
-        b0 = (col - 1) // 3
-        return (b0 + 1, b0 + 4, b0 + 7)
-
-    @staticmethod
-    def row4box(box: int) -> tuple[int, int, int]:
-        assert 1 <= box <= 9
-        r0 = (box - 1) // 3 * 3
-        return (r0 + 1, r0 + 2, r0 + 3)
-
-    @staticmethod
-    def col4box(box: int) -> tuple[int, int, int]:
-        assert 1 <= box <= 9
-        c0 = (box - 1) % 3 * 3
-        return (c0 + 1, c0 + 2, c0 + 3)
-
-    @staticmethod
-    def valid(box: int | Every, row: int | Every, col: int | Every) -> bool:
-        # hard constraints
-        assert box is EVERY or 1 <= box <= 9  # type: ignore
-        assert row is EVERY or 1 <= row <= 9  # type: ignore
-        assert col is EVERY or 1 <= col <= 9  # type: ignore
-
-        # soft constraints
-        try:
-            if isinstance(box, int):
-                if isinstance(row, int):
-                    assert row in Topo.row4box(box)
-                if isinstance(col, int):
-                    assert col in Topo.col4box(box)
-            else:
-                assert row is EVERY or col is EVERY
-            return True
-        except AssertionError:
-            return False
-
-    @staticmethod
-    def all():
-        return ((Topo.box4loc(r, c), r, c) for r in Topo.IDX for c in Topo.IDX)
+    # soft constraints
+    try:
+        if isinstance(box, int):
+            if isinstance(row, int):
+                assert row in coords.row4box(box)
+            if isinstance(col, int):
+                assert col in coords.col4box(box)
+        else:
+            assert row is EVERY or col is EVERY
+        return True
+    except AssertionError:
+        return False
 
 
 class Zone(NamedTuple):
@@ -108,21 +61,21 @@ class Zone(NamedTuple):
         return cls(..., ..., col)
 
     @classmethod
-    def L(cls, row: int, col: int) -> Self:
-        assert 1 <= row <= 9 and 1 <= col <= 9
-        return cls(Topo.box4loc(row, col), row, col)
+    def L(cls, loc: Loc) -> Self:
+        assert 1 <= loc.r <= 9 and 1 <= loc.c <= 9
+        return cls(coords.box4loc(loc), loc.r, loc.c)
 
     @classmethod
     def Allbox(cls) -> Iterable[Self]:
-        return (cls(b, ..., ...) for b in Topo.boxs)
+        return (cls(b, ..., ...) for b in coords.POS)
 
     @classmethod
     def Allrow(cls) -> Iterable[Self]:
-        return (cls(..., r, ...) for r in Topo.rows)
+        return (cls(..., r, ...) for r in coords.POS)
 
     @classmethod
     def Allcol(cls) -> Iterable[Self]:
-        return (cls(..., ..., c) for c in Topo.cols)
+        return (cls(..., ..., c) for c in coords.POS)
 
     @classmethod
     def All(cls) -> Iterable[Self]:
@@ -133,7 +86,7 @@ class Zone(NamedTuple):
     # invalid box may occur because of all the mess around
 
     def valid(self) -> bool:
-        return Topo.valid(self.box, self.row, self.col)
+        return coords_valid(self.box, self.row, self.col)
 
     @property
     def is_everything(self):
@@ -153,10 +106,10 @@ class Zone(NamedTuple):
         if isinstance(what, cls):
             return what
         if isinstance(what, Loc):
-            return cls(Topo.box4loc(what.row, what.col), what.row, what.col)
+            return cls(coords.box4loc(what), what.r, what.c)
         if isinstance(what, Cell):
             loc = what.loc
-            return cls(Topo.box4loc(loc.row, loc.col), loc.row, loc.col)
+            return cls(coords.box4loc(loc), loc.r, loc.c)
         raise TypeError()
 
     def loc(self) -> Loc:
@@ -188,14 +141,14 @@ class Zone(NamedTuple):
             return zone2 if eqe(zone2, zone1) else None
 
         def validated(b, r, c):
-            return cls(b, r, c) if Topo.valid(b, r, c) else None
+            return cls(b, r, c) if coords_valid(b, r, c) else None
 
         # TODO: optimize the shit
         match zone1.box, zone1.row, zone1.col, zone2.box, zone2.row, zone2.col:
             case Every(), int(r1), Every(), Every(), Every(), int(c2):  # R & C
-                return cls(Topo.box4loc(r1, c2), r1, c2)
+                return cls(coords.box4loc(Loc(r1, c2)), r1, c2)
             case Every(), Every(), int(c1), Every(), int(r2), Every():  # C & R
-                return cls(Topo.box4loc(r2, c1), r2, c1)
+                return cls(coords.box4loc(Loc(r2, c1)), r2, c1)
             case int(b1), Every(), Every(), Every(), int(r2), Every():  # B & R
                 return validated(b1, r2, ...)
             case int(b1), Every(), Every(), Every(), Every(), int(c2):  # B & C
@@ -289,16 +242,16 @@ class Zone(NamedTuple):
 
         match zone.box, zone.row, zone.col:
             case int(b), Every(), Every():
-                yield from (cls(..., r, ...) for r in Topo.row4box(b))
-                yield from (cls(..., ..., c) for c in Topo.col4box(b))
+                yield from (cls(..., r, ...) for r in coords.row4box(b))
+                yield from (cls(..., ..., c) for c in coords.col4box(b))
             case Every(), int(r), Every():
-                yield from (cls(b, ..., ...) for b in Topo.box4row(r))
+                yield from (cls(b, ..., ...) for b in coords.box4row(r))
             case Every(), Every(), int(c):
-                yield from (cls(b, ..., ...) for b in Topo.box4col(c))
+                yield from (cls(b, ..., ...) for b in coords.box4col(c))
             case int(b), int(r), Every():
-                yield from (cls(..., ..., c) for c in Topo.col4box(b))
+                yield from (cls(..., ..., c) for c in coords.col4box(b))
             case int(b), Every(), int(c):
-                yield from (cls(..., r, ...) for r in Topo.row4box(b))
+                yield from (cls(..., r, ...) for r in coords.row4box(b))
 
     @classmethod
     def aside(cls, zone: Self, subzone: Self) -> Iterable[Self]:
@@ -312,12 +265,12 @@ class Zone(NamedTuple):
         # quick stuff without nested iterations and redundant overlappency
         match majzone.box, majzone.row, majzone.col:
             case int(b), Every(), Every():
-                yield from (cls(b, r, ...) for r in Topo.row4box(b))
-                yield from (cls(b, ..., c) for c in Topo.col4box(b))
+                yield from (cls(b, r, ...) for r in coords.row4box(b))
+                yield from (cls(b, ..., c) for c in coords.col4box(b))
             case Every(), int(r), Every():
-                yield from (cls(b, r, ...) for b in Topo.box4row(r))
+                yield from (cls(b, r, ...) for b in coords.box4row(r))
             case Every(), Every(), int(c):
-                yield from (cls(b, ..., c) for b in Topo.box4col(c))
+                yield from (cls(b, ..., c) for b in coords.box4col(c))
 
     def __iter__(self) -> Iterator[Loc]:
         """Iterate all cell locations in the zone"""
@@ -326,19 +279,19 @@ class Zone(NamedTuple):
 
         match self.box, self.row, self.col:
             case Every(), Every(), Every():  # WHY ?
-                yield from (Loc(r, c) for r in Topo.rows for c in Topo.cols)
+                yield from (Loc(r, c) for r in coords.POS for c in coords.POS)
             case _, int(r), int(c):
                 yield Loc(r, c)
             case Every(), int(r), Every():
-                yield from (Loc(r, c) for c in Topo.cols)
+                yield from (Loc(r, c) for c in coords.POS)
             case Every(), Every(), int(c):
-                yield from (Loc(r, c) for r in Topo.rows)
+                yield from (Loc(r, c) for r in coords.POS)
             case int(b), Every(), Every():
-                yield from (Loc(r, c) for r in Topo.row4box(b) for c in Topo.col4box(b))
+                yield from (Loc(r, c) for r in coords.row4box(b) for c in coords.col4box(b))
             case int(b), int(r), Every():
-                yield from (Loc(r, c) for c in Topo.col4box(b))
+                yield from (Loc(r, c) for c in coords.col4box(b))
             case int(b), Every(), int(c):
-                yield from (Loc(r, c) for r in Topo.row4box(b))
+                yield from (Loc(r, c) for r in coords.row4box(b))
 
     def __contains__(self, loc: Loc) -> bool:
         """If the zone contains specific location"""
@@ -347,17 +300,17 @@ class Zone(NamedTuple):
             case Every(), Every(), Every():
                 return True
             case int(b), Every(), Every():
-                return loc.row in Topo.row4box(b) and loc.col in Topo.col4box(b)
+                return loc.r in coords.row4box(b) and loc.c in coords.col4box(b)
             case Every(), int(r), Every():
-                return loc.row == r
+                return loc.r == r
             case Every(), Every(), int(c):
-                return loc.col == c
+                return loc.c == c
             case int(b), int(r), Every():
-                return loc.row == r and loc.col in Topo.col4box(b)
+                return loc.r == r and loc.c in coords.col4box(b)
             case int(b), Every(), int(c):
-                return loc.col == c and loc.row in Topo.row4box(b)
+                return loc.c == c and loc.r in coords.row4box(b)
             case _, int(r), int(c):
-                return loc.row == r and loc.col == c
+                return loc.r == r and loc.c == c
 
     def __len__(self):
         if self.is_cellular:
@@ -421,9 +374,9 @@ class Node(NamedTuple):
         if isinstance(where, Zone):
             return cls(where, what)
         elif isinstance(where, Loc):
-            return cls(Zone.L(where.row, where.col), what)
+            return cls(Zone.L(where), what)
         elif isinstance(where, Cell):
-            return cls(Zone.L(where.loc.row, where.loc.col), what)
+            return cls(Zone.L(where.loc), what)
         raise TypeError()
 
     def __str__(self):

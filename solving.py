@@ -24,7 +24,7 @@ class Resolution:
         def remove(node):
             def trans(cell: Cell):
                 if cell.loc in node.zone:
-                    return Cell(cell.loc, Digits(cell.dgs - {node.dig}))
+                    return Cell(cell.loc, Digits(cell.digits - {node.dig}))
                 else:
                     return cell
 

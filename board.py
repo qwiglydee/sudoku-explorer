@@ -5,60 +5,63 @@ Apparently, this works for any solving approach.
 """
 
 from collections.abc import Generator, Iterable
-from typing import Callable, NamedTuple, Self
-
-DIGITS = {1, 2, 3, 4, 5, 6, 7, 8, 9}
-RANGE9 = (1, 2, 3, 4, 5, 6, 7, 8, 9)
-RANGE81 = tuple(range(1, 82))
+from typing import Callable, Iterator, NamedTuple, Self
 
 
 class Loc(NamedTuple):
-    row: int
-    col: int
+    r: int
+    c: int
 
     def __str__(self) -> str:
-        return f"r{self.row}c{self.col}"
+        return f"[r{self.r}c{self.c}]"
 
 
-Digits = frozenset[int]
+Digits = frozenset[int]  # immutable/hashable
+
+DIGITS = Digits((1, 2, 3, 4, 5, 6, 7, 8, 9))
 
 
 class Cell(NamedTuple):
+    """Content of a cell coupled with its coords"""
+
     loc: Loc
-    dgs: Digits
+    digits: Digits
 
     @property
     def is_empty(self) -> bool:
-        return len(self.dgs) == 0
+        return len(self.digits) == 0
 
     @property
     def is_final(self) -> bool:
-        return len(self.dgs) == 1
+        return len(self.digits) == 1
 
     @property
     def is_draft(self) -> bool:
-        return len(self.dgs) > 1
+        return len(self.digits) > 1
 
     @property
     def is_virgin(self) -> bool:
-        return len(self.dgs) == 9
+        return len(self.digits) == 9
 
     @property
-    def final(self) -> int | None:
-        if len(self.dgs) == 1:
-            (d,) = self.dgs
-            return d
-
-    @property
-    def size(self):
-        return len(self.dgs)
+    def final(self) -> int:
+        assert self.is_final
+        (d,) = self.digits
+        return d
 
     def __contains__(self, dig: int) -> bool:
-        return dig in self.dgs
+        return dig in self.digits
+
+    def __len__(self):
+        return len(self.digits)
+
+    def __iter__(self) -> Iterator[int]:
+        for d in self.digits:
+            yield d
 
     def __str__(self):
-        cont = "".join(map(str, self.dgs))
-        return f"{{{cont}@{self.loc}}}"
+        cont = "".join(map(str, self.digits))
+        return f"{{{cont}}}@{self.loc}"
 
 
 Transformer = Callable[[Cell], Cell]
@@ -81,13 +84,17 @@ class Board:
             inst.content = cont
         return inst
 
+    @classmethod
+    def Pristine(cls):
+        return cls(DIGITS for _ in range(81))
+
     def __repr__(self) -> str:
         grid = [repr(cell) + (",\t" if i % 9 else ",\n") for i, cell in enumerate(self.content, 1)]
         return f"Board((\n{''.join(grid)}))"
 
     @classmethod
     def _idx(cls, loc: Loc) -> int:
-        return (loc.row - 1) * 9 + (loc.col - 1)
+        return (loc.r - 1) * 9 + (loc.c - 1)
 
     @classmethod
     def _loc(cls, idx: int) -> Loc:
@@ -119,11 +126,18 @@ class Board:
     @classmethod
     def transform(cls, orig: Self, trans: Transformer) -> Self:
         """Apply transformer to all cells"""
-        return cls(tuple(trans(cell).dgs for cell in iter(orig)))
+        return cls(tuple(trans(cell).digits for cell in iter(orig)))
 
     @classmethod
     def replace(cls, orig: Self, loc: Loc, repl: Iterable[int]) -> Self:
         """Replace single cell"""
         content = list(orig.content)
         content[cls._idx(loc)] = Digits(repl)
+        return cls(content)
+
+    @classmethod
+    def insert(cls, orig: Self, cell: Cell) -> Self:
+        """Replace single cell"""
+        content = list(orig.content)
+        content[cls._idx(cell.loc)] = Digits(cell.digits)
         return cls(content)
