@@ -45,6 +45,10 @@ class Cell(NamedTuple):
             (d,) = self.dgs
             return d
 
+    @property
+    def size(self):
+        return len(self.dgs)
+
     def __contains__(self, dig: int) -> bool:
         return dig in self.dgs
 
@@ -78,20 +82,20 @@ class Board:
         return f"Board((\n{''.join(grid)}))"
 
     @classmethod
-    def __idx(cls, loc: Loc) -> int:
+    def _idx(cls, loc: Loc) -> int:
         return (loc.row - 1) * 9 + (loc.col - 1)
 
     @classmethod
-    def __loc(cls, idx: int) -> Loc:
+    def _loc(cls, idx: int) -> Loc:
         return Loc(1 + idx // 9, 1 + idx % 9)
 
     def __iter__(self) -> Generator[Cell]:
         """iterate all cells (in storage order)"""
         for idx, cell in enumerate(self.content):
-            yield Cell(self.__loc(idx), cell)
+            yield Cell(self._loc(idx), cell)
 
     def get(self, loc: Loc) -> Cell:
-        return Cell(loc, self.content[self.__idx(loc)])
+        return Cell(loc, self.content[self._idx(loc)])
 
     def slice(self, locs: Iterable[Loc]) -> Iterable[Cell]:
         return (self.get(loc) for loc in locs)
@@ -117,5 +121,5 @@ class Board:
     def replace(cls, orig: Self, loc: Loc, repl: Iterable[int]) -> Self:
         """Replace single cell"""
         content = list(orig.content)
-        content[cls.__idx(loc)] = Digits(repl)
+        content[cls._idx(loc)] = Digits(repl)
         return cls(content)

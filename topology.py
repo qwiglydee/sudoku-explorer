@@ -76,6 +76,10 @@ class Topo:
         except AssertionError:
             return False
 
+    @staticmethod
+    def all():
+        return ((Topo.box4loc(r, c), r, c) for r in Topo.IDX for c in Topo.IDX)
+
 
 class Zone(NamedTuple):
     """Secition or subsection of the board
