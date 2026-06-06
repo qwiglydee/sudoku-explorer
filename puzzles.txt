@@ -1,6 +1,4 @@
-# totally normal level puzzle:
-# solvable by: basics + multiples[2, 3, 4] + chains[rope]
-# best result: 210
+# totally normal level puzzle
 ....89...
 ......17.
 6........

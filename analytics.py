@@ -379,13 +379,10 @@ class Zone(NamedTuple):
         return self.__class__.intersection(self, other)
 
     def __str__(self):
+        bstr = "…" if self.box is EVERY else f"b{self.box}"
         rstr = "…" if self.row is EVERY else f"r{self.row}"
         cstr = "…" if self.col is EVERY else f"c{self.col}"
-        if self.is_cellular:
-            return f"{rstr}{cstr}"
-        else:
-            bstr = "…" if self.box is EVERY else f"b{self.box}"
-            return f"{bstr}{rstr}{cstr}"
+        return f"{bstr}{rstr}{cstr}"
 
 
 def visibility(z1: Zone, z2: Zone):
