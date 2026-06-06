@@ -40,6 +40,10 @@ class Cell(NamedTuple):
         return len(self.dgs) > 1
 
     @property
+    def is_virgin(self) -> bool:
+        return len(self.dgs) == 9
+
+    @property
     def final(self) -> int | None:
         if len(self.dgs) == 1:
             (d,) = self.dgs

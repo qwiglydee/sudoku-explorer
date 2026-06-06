@@ -45,6 +45,28 @@ def bprint(board: Board):
             print("───┼───┼───╫───┼───┼───╫───┼───┼───")
 
 
+def picture(board: Board) -> str:
+    """Convert a Grid to a Picture string, one line at a time."""
+
+    def val(cell) -> str:
+        if cell.is_virgin:
+            return "."
+        else:
+            return "".join(map(str, sorted(cell.dgs)))
+
+    maxwidth = max(len(val(cell)) for cell in board)
+    dash1 = "─" * (maxwidth * 3 + 2)
+    dash3 = "\n" + "┼".join(3 * [dash1])
+
+    def cell(r, c):
+        return val(board.get(Loc(r, c))).center(maxwidth) + ("│" if c in (3, 6) else " ")
+
+    def line(r):
+        return "".join(cell(r, c) for c in range(1, 10)) + (dash3 if r in (3, 6) else "")
+
+    return "\n".join(map(line, range(1, 10)))
+
+
 def neighborhood(board: Board, zone: Zone | Iterable[Loc]) -> Iterable[Cell]:
     return board.slice(iter(zone))
 
