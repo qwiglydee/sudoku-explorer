@@ -366,3 +366,16 @@ def allvisible(z1: Zone, z2: Zone) -> set[Zone]:
         intervis -= set(filter(lambda z: z < sz, intervis))  # type: ignore filtered None
 
     return intervis  # type: ignore
+
+
+def peers(loc: Loc, unit: Zone) -> Iterable[Loc]:
+    return set(iter(unit)) - {loc}
+
+
+def peerz(zone: Zone, unit: Zone) -> Iterable[Loc]:
+    return set(iter(unit)) - set(iter(zone))
+
+
+def allpeers(zone: Zone) -> Iterable[Loc]:
+    for unit in Zone.around(zone):
+        yield from peerz(zone, unit)  # will overlap

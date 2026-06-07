@@ -2,7 +2,7 @@ from functools import reduce
 from itertools import chain as iterchain
 from typing import Iterable, NamedTuple, Self
 
-from board import Cell, Digits, Loc
+from board import Digits, Loc, Cell, Board
 from topology import Zone
 
 iterflat = iterchain.from_iterable
@@ -55,16 +55,26 @@ class Node(NamedTuple):
         cont = "".join(map(str, sorted(self.digits)))
         return f"{cont}@{self.zone}"
 
-    def __contains__(self, other: Cell | Self):
-        if isinstance(other, Cell):
-            return other.loc in self.zone and other.digits <= self.digits
-        if isinstance(other, self.__class__):
-            return other.zone <= self.zone and other.digits <= self.digits
+    def matching(self, cell: Cell) -> Cell:
+        """Check if a cell has some digits targeted by the node"""
+        return Cell(cell.loc, Digits(cell.digits & self.digits))
 
-        raise TypeError()
+    def spoiling(self, cell: Cell) -> Cell:
+        """Check if a cell has digits not targeted by the node"""
+        return Cell(cell.loc, Digits(cell.digits - self.digits))
 
 
-class Group(frozenset[Node]):
+def cellmatching(node: Node, cells: Iterable[Cell]) -> Iterable[Cell]:
+    matching = (node.matching(cell) for cell in cells)
+    return (res for res in matching if len(res))
+
+
+def cellspoiling(node: Node, cells: Iterable[Cell]) -> Iterable[Cell]:
+    matching = (node.spoiling(cell) for cell in cells)
+    return (res for res in matching if len(res))
+
+
+class MultiNode(frozenset[Node]):
     # TODO
     pass
 

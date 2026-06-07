@@ -117,11 +117,20 @@ def filt_drafts(c: Cell):
     return c.is_draft
 
 
-def filt_having(d: int):
-    def filt(c: Cell):
-        return d in c.digits
+def filt_having(d: int | Iterable[int]):
+    if isinstance(d, int):
+        return lambda c: d in c.digits
+    else:
+        dd = Digits(d)
+        return lambda c: dd <= c.digits
 
-    return filt
+
+def filt_havesome(d: int | Iterable[int]):
+    if isinstance(d, int):
+        return lambda c: d in c.digits
+    else:
+        dd = Digits(d)
+        return lambda c: len(dd & c.digits)
 
 
 def flat_cells(cc: Iterable[Cell]):

@@ -64,7 +64,7 @@ class Cell(NamedTuple):
 
     def __str__(self):
         cont = "".join(map(str, self.digits))
-        return f"{{{cont}}}@{self.loc}"
+        return f"{cont}@{self.loc}"
 
 
 Transformer = Callable[[Cell], Cell]
