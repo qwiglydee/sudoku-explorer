@@ -103,7 +103,26 @@ def validate(board: Board):
         finals = finalborhood(board, zone)
         return set(c.final for c in finals) == DIGITS
 
-    if all(map(fulfiled, Zone.All())):
+    if all(map(fulfiled, Zone.Units())):
         return "SOLVED"
     else:
         return "BROKEN"
+
+
+def filt_finals(c: Cell):
+    return c.is_final
+
+
+def filt_drafts(c: Cell):
+    return c.is_draft
+
+
+def filt_having(d: int):
+    def filt(c: Cell):
+        return d in c.digits
+
+    return filt
+
+
+def flat_cells(cc: Iterable[Cell]):
+    return iterflat(c.digits for c in cc)

@@ -7,7 +7,6 @@ from collections.abc import Generator, AsyncGenerator
 from dataclasses import dataclass, field
 
 from board import Digits, Cell, Board
-from topology import Node
 from utils import validate
 
 
@@ -15,29 +14,19 @@ from utils import validate
 class Resolution:
     """Single move of solving"""
 
-    castaways: set[Node] = field(default_factory=set)
-    finals: set[Node] = field(default_factory=set)
+    castaways: set[Cell] = field(default_factory=set)
+    finals: set[Cell] = field(default_factory=set)
 
     def apply(self, current: Board) -> Board:
         """Removing castaways and isolating all finals"""
 
-        def remove(node):
-            def trans(cell: Cell):
-                if cell.loc in node.zone:
-                    return Cell(cell.loc, Digits(cell.digits - {node.dig}))
-                else:
-                    return cell
+        for away in self.castaways:
+            orig = current.get(away.loc)
+            digits = Digits(orig.digits - away.digits)
+            current = Board.insert(current, Cell(away.loc, digits))
 
-            return trans
-
-        if self.castaways:
-            for node in self.castaways:
-                current = Board.transform(current, remove(node))
-
-        if self.finals:
-            assert all(t.is_cellular for t in self.finals)
-            for node in self.finals:
-                current = Board.replace(current, node.zone.loc(), Digits({node.dig}))
+        for cell in self.finals:
+            current = Board.insert(current, cell)
 
         return current
 

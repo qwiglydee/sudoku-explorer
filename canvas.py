@@ -6,7 +6,7 @@ from typing import Iterable, NamedTuple, Self
 
 from ipycanvas import Canvas, MultiCanvas, hold_canvas
 
-from board import Loc, Cell, Board
+from board import Loc, Board
 from palette import pick_color
 
 CANVAS_SIZE = 640

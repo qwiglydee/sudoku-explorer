@@ -1,6 +1,5 @@
 """Structures for coordslogical analysis"""
 
-from functools import reduce
 from itertools import chain as iterchain, product as iterprod
 from types import EllipsisType
 from typing import Iterable, Iterator, NamedTuple, Self
@@ -78,7 +77,7 @@ class Zone(NamedTuple):
         return (cls(..., ..., c) for c in coords.POS)
 
     @classmethod
-    def All(cls) -> Iterable[Self]:
+    def Units(cls) -> Iterable[Self]:
         yield from cls.Allbox()
         yield from cls.Allrow()
         yield from cls.Allcol()
@@ -94,21 +93,25 @@ class Zone(NamedTuple):
         return self.box is EVERY and self.row is EVERY and self.col is EVERY
 
     @property
-    def is_cellular(self):
+    def is_cell(self):
         return self.row is not EVERY and self.col is not EVERY
 
     @property
-    def is_major(self):
+    def is_unit(self):
         return sum(a is not EVERY for a in (self.box, self.row, self.col)) == 1
 
+    @property
+    def is_sector(self):
+        return sum(a is not EVERY for a in (self.box, self.row, self.col)) == 2
+
     @classmethod
-    def of(cls, what: Self | Loc | Cell):
-        if isinstance(what, cls):
-            return what
-        if isinstance(what, Loc):
-            return cls(coords.box4loc(what), what.r, what.c)
-        if isinstance(what, Cell):
-            loc = what.loc
+    def of(cls, where: Self | Loc | Cell):
+        if isinstance(where, cls):
+            return where
+        if isinstance(where, Loc):
+            return cls(coords.box4loc(where), where.r, where.c)
+        if isinstance(where, Cell):
+            loc = where.loc
             return cls(coords.box4loc(loc), loc.r, loc.c)
         raise TypeError()
 
@@ -135,9 +138,9 @@ class Zone(NamedTuple):
             # if a cellular zone matches some another zone
             return (zone.box == EVERY or zone.box == cell.box) and (zone.row == EVERY or zone.row == cell.row) and (zone.col is EVERY or zone.col == cell.col)
 
-        if zone1.is_cellular:
+        if zone1.is_cell:
             return zone1 if eqe(zone1, zone2) else None
-        if zone2.is_cellular:
+        if zone2.is_cell:
             return zone2 if eqe(zone2, zone1) else None
 
         def validated(b, r, c):
@@ -201,7 +204,7 @@ class Zone(NamedTuple):
         if other.is_everything:
             return True
 
-        if self.is_major:
+        if self.is_unit:
             return self == other
 
         match self.box, self.row, self.col, other.box, other.row, other.col:
@@ -215,13 +218,13 @@ class Zone(NamedTuple):
         return False
 
     @classmethod
-    def around(cls, zone: Self) -> Iterable[Self]:
-        """All major zones fully containing a subzone
-        = visible by any cell in the subzone
+    def around(cls, sector: Self) -> Iterable[Self]:
+        """All units fully containing the sector
+        = fully visible by any cell in the sector
         """
-        assert zone.valid()
+        assert sector.valid()
 
-        match zone.box, zone.row, zone.col:
+        match sector.box, sector.row, sector.col:
             case int(b), int(r), Every():
                 yield cls(b, ..., ...)
                 yield cls(..., r, ...)
@@ -235,7 +238,7 @@ class Zone(NamedTuple):
 
     @classmethod
     def across(cls, zone: Self) -> Iterable[Self]:
-        """All major zones intersecting given
+        """All units intersecting the zone/sector
         = vizible by some cells in the zone
         """
         assert zone.valid()
@@ -254,16 +257,16 @@ class Zone(NamedTuple):
                 yield from (cls(..., r, ...) for r in coords.row4box(b))
 
     @classmethod
-    def aside(cls, zone: Self, subzone: Self) -> Iterable[Self]:
-        return set(cls.around(subzone)) - {zone}
+    def aside(cls, zone: Self, sector: Self) -> Iterable[Self]:
+        return set(cls.around(sector)) - {zone}
 
     @classmethod
-    def partitions(cls, majzone: Self) -> Iterable[Self]:
-        """All subzones of a major zone, partitioned by intersections with others"""
-        assert majzone.valid() and majzone.is_major
+    def sectors(cls, unit: Self) -> Iterable[Self]:
+        """All sectors of a unit"""
+        assert unit.valid() and unit.is_unit
 
         # quick stuff without nested iterations and redundant overlappency
-        match majzone.box, majzone.row, majzone.col:
+        match unit.box, unit.row, unit.col:
             case int(b), Every(), Every():
                 yield from (cls(b, r, ...) for r in coords.row4box(b))
                 yield from (cls(b, ..., c) for c in coords.col4box(b))
@@ -313,9 +316,9 @@ class Zone(NamedTuple):
                 return loc.r == r and loc.c == c
 
     def __len__(self):
-        if self.is_cellular:
+        if self.is_cell:
             return 1
-        elif self.is_major:
+        elif self.is_unit:
             return 9
         else:
             return 3
@@ -338,14 +341,14 @@ class Zone(NamedTuple):
     def __str__(self):
         rstr = "…" if self.row is EVERY else f"r{self.row}"
         cstr = "…" if self.col is EVERY else f"c{self.col}"
-        if self.is_cellular:
+        if self.is_cell:
             return f"{rstr}{cstr}"
         else:
             bstr = "…" if self.box is EVERY else f"b{self.box}"
             return f"{bstr}{rstr}{cstr}"
 
 
-def visibility(z1: Zone, z2: Zone):
+def visibility(z1: Zone, z2: Zone) -> set[Zone]:
     """Check if the zones are fully mutually visible
     Return their common major zones
     """
@@ -355,135 +358,11 @@ def visibility(z1: Zone, z2: Zone):
 def allvisible(z1: Zone, z2: Zone) -> set[Zone]:
     """All zones/cells fully visible from both of the observers"""
     intervis = set(z1a & z2a for z1a, z2a in iterprod(Zone.around(z1), Zone.around(z2)))
-    intervis -= {None}
+    if None in intervis:
+        intervis.remove(None)
+
+    # removing minor zones contained in the shared
+    for sz in visibility(z1, z2):
+        intervis -= set(filter(lambda z: z < sz, intervis))  # type: ignore filtered None
+
     return intervis  # type: ignore
-
-
-class Node(NamedTuple):
-    """A single-digit draft placed in some locality"""
-
-    zone: Zone
-    dig: int
-
-    @property
-    def is_cellular(self) -> bool:
-        return self.zone.is_cellular
-
-    @classmethod
-    def at(cls, where: Loc | Zone | Cell, what: int) -> Self:
-        if isinstance(where, Zone):
-            return cls(where, what)
-        elif isinstance(where, Loc):
-            return cls(Zone.L(where), what)
-        elif isinstance(where, Cell):
-            return cls(Zone.L(where.loc), what)
-        raise TypeError()
-
-    def __str__(self):
-        return f"{self.dig}{self.zone}"
-
-
-class Group(NamedTuple):
-    zones: tuple[Zone, Zone]
-    dig: int
-    cells: frozenset[Cell]
-
-    def cross(self):
-        return self.zones[0] & self.zones[1]
-
-    def node(self):
-        if len(self.cells) == 1:
-            [lonesome] = self.cells
-            return Node.at(lonesome, self.dig)
-        elif len(self.cells) > 1:
-            subzone = self.cross()
-            assert subzone is not None
-            return Node.at(subzone, self.dig)
-        else:
-            raise ValueError()
-
-
-class Link(tuple[Node, Node]):
-    """Ordered immutable pair of nodes"""
-
-    # ordered for chains, unordered for comparision
-
-    CHAR = "~"
-
-    def reversed(self) -> Self:
-        return self.__class__((self[1], self[0]))
-
-    def __eq__(self, other):
-        return frozenset(self) == frozenset(other)
-
-    def __hash__(self):
-        return hash(frozenset((self)))
-
-    def __repr__(self):
-        return f"{self.__class__.__name__}(({self[0]!r}, {self[1]!r},))"
-
-    def __str__(self):
-        return f"({self[0]} {self.CHAR} {self[1]})"
-
-
-class HLink(Link):
-    CHAR = "⊻"
-
-
-class SLink(Link):
-    CHAR = "⊼"
-
-
-class Chain(tuple[Link, ...]):
-    """Chain of alterating links"""
-
-    # totally ordered, unordered for comparision
-
-    ALTERATING = [HLink, SLink]
-
-    @classmethod
-    def init(cls, link: HLink):
-        assert isinstance(link, HLink)
-        return cls((link,))
-
-    @classmethod
-    def extend(cls, chain: Self, *links: Link) -> Self:
-        """Add some links to end of the chain"""
-        assert all(isinstance(lnk, cls.ALTERATING[i % 2]) for i, lnk in enumerate(links, 1))
-        assert chain[-1][-1] == links[0][0]
-        return cls((*chain, *links))
-
-    @classmethod
-    def extendhead(cls, chain: Self, *links: Link) -> Self:
-        assert all(isinstance(lnk, cls.ALTERATING[i % 2]) for i, lnk in enumerate(links))
-        assert chain[0][0] == links[-1][-1]
-        return cls((*links, *chain))
-
-    def anchors(self) -> set[Node]:
-        """All anchor points in the chain"""
-        return set(iterflat(self))
-
-    @property
-    def edges(self) -> tuple[Node, Node]:
-        return (self[0][0], self[-1][1])
-
-    @property
-    def is_loop(self):
-        return self[0][0] == self[-1][1]
-
-    def __eq__(self, other: Self):
-        return frozenset(self) == frozenset(other)
-
-    def __hash__(self):
-        return hash(frozenset(self))
-
-    def __str__(self):
-        def strtail(lnk):
-            return f" {lnk.CHAR} {lnk[1]}"
-
-        joined = reduce(lambda a, lnk: a + strtail(lnk), self, str(self[0][0]))
-
-        if self.is_loop:
-            return f"(… {joined} …)"
-        else:
-            return f"({joined})"

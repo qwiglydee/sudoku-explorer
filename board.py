@@ -16,7 +16,10 @@ class Loc(NamedTuple):
         return f"[r{self.r}c{self.c}]"
 
 
-Digits = frozenset[int]  # immutable/hashable
+class Digits(frozenset[int]):
+    def __str__(self):
+        return "".join(map(str, sorted(self)))
+
 
 DIGITS = Digits((1, 2, 3, 4, 5, 6, 7, 8, 9))
 
