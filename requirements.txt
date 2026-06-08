@@ -2,4 +2,3 @@ ipykernel
 ipywidgets
 ipycanvas
 ipyspinner
-nbstripout
