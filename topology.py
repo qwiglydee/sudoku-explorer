@@ -5,7 +5,6 @@ from types import EllipsisType
 from typing import Iterable, Iterator, NamedTuple, Self
 
 from board import Loc, Cell
-import coords
 
 iterflat = iterchain.from_iterable
 
@@ -13,7 +12,7 @@ Every = EllipsisType
 EVERY = Ellipsis
 
 
-def coords_valid(box: int | Every, row: int | Every, col: int | Every) -> bool:
+def validate(box: int | Every, row: int | Every, col: int | Every) -> bool:
     # hard constraints
     assert box is EVERY or 1 <= box <= 9  # type: ignore
     assert row is EVERY or 1 <= row <= 9  # type: ignore
@@ -23,9 +22,9 @@ def coords_valid(box: int | Every, row: int | Every, col: int | Every) -> bool:
     try:
         if isinstance(box, int):
             if isinstance(row, int):
-                assert row in coords.row4box(box)
+                assert row in Loc.row4box(box)
             if isinstance(col, int):
-                assert col in coords.col4box(box)
+                assert col in Loc.col4box(box)
         else:
             assert row is EVERY or col is EVERY
         return True
@@ -62,19 +61,19 @@ class Zone(NamedTuple):
     @classmethod
     def L(cls, loc: Loc) -> Self:
         assert 1 <= loc.r <= 9 and 1 <= loc.c <= 9
-        return cls(coords.box4loc(loc), loc.r, loc.c)
+        return cls(Loc.box4loc(loc), loc.r, loc.c)
 
     @classmethod
     def Allbox(cls) -> Iterable[Self]:
-        return (cls(b, ..., ...) for b in coords.POS)
+        return (cls(b, ..., ...) for b in Loc.POS)
 
     @classmethod
     def Allrow(cls) -> Iterable[Self]:
-        return (cls(..., r, ...) for r in coords.POS)
+        return (cls(..., r, ...) for r in Loc.POS)
 
     @classmethod
     def Allcol(cls) -> Iterable[Self]:
-        return (cls(..., ..., c) for c in coords.POS)
+        return (cls(..., ..., c) for c in Loc.POS)
 
     @classmethod
     def Units(cls) -> Iterable[Self]:
@@ -85,7 +84,7 @@ class Zone(NamedTuple):
     # invalid box may occur because of all the mess around
 
     def valid(self) -> bool:
-        return coords_valid(self.box, self.row, self.col)
+        return validate(self.box, self.row, self.col)
 
     @property
     def is_everything(self):
@@ -109,10 +108,10 @@ class Zone(NamedTuple):
         if isinstance(where, cls):
             return where
         if isinstance(where, Loc):
-            return cls(coords.box4loc(where), where.r, where.c)
+            return cls(Loc.box4loc(where), where.r, where.c)
         if isinstance(where, Cell):
             loc = where.loc
-            return cls(coords.box4loc(loc), loc.r, loc.c)
+            return cls(Loc.box4loc(loc), loc.r, loc.c)
         raise TypeError()
 
     def loc(self) -> Loc:
@@ -144,14 +143,14 @@ class Zone(NamedTuple):
             return zone2 if eqe(zone2, zone1) else None
 
         def validated(b, r, c):
-            return cls(b, r, c) if coords_valid(b, r, c) else None
+            return cls(b, r, c) if validate(b, r, c) else None
 
         # TODO: optimize the shit
         match zone1.box, zone1.row, zone1.col, zone2.box, zone2.row, zone2.col:
             case Every(), int(r1), Every(), Every(), Every(), int(c2):  # R & C
-                return cls(coords.box4loc(Loc(r1, c2)), r1, c2)
+                return cls(Loc.box4loc(Loc(r1, c2)), r1, c2)
             case Every(), Every(), int(c1), Every(), int(r2), Every():  # C & R
-                return cls(coords.box4loc(Loc(r2, c1)), r2, c1)
+                return cls(Loc.box4loc(Loc(r2, c1)), r2, c1)
             case int(b1), Every(), Every(), Every(), int(r2), Every():  # B & R
                 return validated(b1, r2, ...)
             case int(b1), Every(), Every(), Every(), Every(), int(c2):  # B & C
@@ -245,16 +244,16 @@ class Zone(NamedTuple):
 
         match zone.box, zone.row, zone.col:
             case int(b), Every(), Every():
-                yield from (cls(..., r, ...) for r in coords.row4box(b))
-                yield from (cls(..., ..., c) for c in coords.col4box(b))
+                yield from (cls(..., r, ...) for r in Loc.row4box(b))
+                yield from (cls(..., ..., c) for c in Loc.col4box(b))
             case Every(), int(r), Every():
-                yield from (cls(b, ..., ...) for b in coords.box4row(r))
+                yield from (cls(b, ..., ...) for b in Loc.box4row(r))
             case Every(), Every(), int(c):
-                yield from (cls(b, ..., ...) for b in coords.box4col(c))
+                yield from (cls(b, ..., ...) for b in Loc.box4col(c))
             case int(b), int(r), Every():
-                yield from (cls(..., ..., c) for c in coords.col4box(b))
+                yield from (cls(..., ..., c) for c in Loc.col4box(b))
             case int(b), Every(), int(c):
-                yield from (cls(..., r, ...) for r in coords.row4box(b))
+                yield from (cls(..., r, ...) for r in Loc.row4box(b))
 
     @classmethod
     def aside(cls, zone: Self, sector: Self) -> Iterable[Self]:
@@ -268,12 +267,12 @@ class Zone(NamedTuple):
         # quick stuff without nested iterations and redundant overlappency
         match unit.box, unit.row, unit.col:
             case int(b), Every(), Every():
-                yield from (cls(b, r, ...) for r in coords.row4box(b))
-                yield from (cls(b, ..., c) for c in coords.col4box(b))
+                yield from (cls(b, r, ...) for r in Loc.row4box(b))
+                yield from (cls(b, ..., c) for c in Loc.col4box(b))
             case Every(), int(r), Every():
-                yield from (cls(b, r, ...) for b in coords.box4row(r))
+                yield from (cls(b, r, ...) for b in Loc.box4row(r))
             case Every(), Every(), int(c):
-                yield from (cls(b, ..., c) for b in coords.box4col(c))
+                yield from (cls(b, ..., c) for b in Loc.box4col(c))
 
     def __iter__(self) -> Iterator[Loc]:
         """Iterate all cell locations in the zone"""
@@ -282,19 +281,19 @@ class Zone(NamedTuple):
 
         match self.box, self.row, self.col:
             case Every(), Every(), Every():  # WHY ?
-                yield from (Loc(r, c) for r in coords.POS for c in coords.POS)
+                yield from (Loc(r, c) for r in Loc.POS for c in Loc.POS)
             case _, int(r), int(c):
                 yield Loc(r, c)
             case Every(), int(r), Every():
-                yield from (Loc(r, c) for c in coords.POS)
+                yield from (Loc(r, c) for c in Loc.POS)
             case Every(), Every(), int(c):
-                yield from (Loc(r, c) for r in coords.POS)
+                yield from (Loc(r, c) for r in Loc.POS)
             case int(b), Every(), Every():
-                yield from (Loc(r, c) for r in coords.row4box(b) for c in coords.col4box(b))
+                yield from (Loc(r, c) for r in Loc.row4box(b) for c in Loc.col4box(b))
             case int(b), int(r), Every():
-                yield from (Loc(r, c) for c in coords.col4box(b))
+                yield from (Loc(r, c) for c in Loc.col4box(b))
             case int(b), Every(), int(c):
-                yield from (Loc(r, c) for r in coords.row4box(b))
+                yield from (Loc(r, c) for r in Loc.row4box(b))
 
     def __contains__(self, loc: Loc) -> bool:
         """If the zone contains specific location"""
@@ -303,15 +302,15 @@ class Zone(NamedTuple):
             case Every(), Every(), Every():
                 return True
             case int(b), Every(), Every():
-                return loc.r in coords.row4box(b) and loc.c in coords.col4box(b)
+                return loc.r in Loc.row4box(b) and loc.c in Loc.col4box(b)
             case Every(), int(r), Every():
                 return loc.r == r
             case Every(), Every(), int(c):
                 return loc.c == c
             case int(b), int(r), Every():
-                return loc.r == r and loc.c in coords.col4box(b)
+                return loc.r == r and loc.c in Loc.col4box(b)
             case int(b), Every(), int(c):
-                return loc.c == c and loc.r in coords.row4box(b)
+                return loc.c == c and loc.r in Loc.row4box(b)
             case _, int(r), int(c):
                 return loc.r == r and loc.c == c
 

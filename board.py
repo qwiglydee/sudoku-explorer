@@ -8,20 +8,53 @@ from collections.abc import Generator, Iterable
 from typing import Callable, Iterator, NamedTuple, Self
 
 
-class Loc(NamedTuple):
-    r: int
-    c: int
-
-    def __str__(self) -> str:
-        return f"[r{self.r}c{self.c}]"
-
-
 class Digits(frozenset[int]):
     def __str__(self):
         return "".join(map(str, sorted(self)))
 
 
 DIGITS = Digits((1, 2, 3, 4, 5, 6, 7, 8, 9))
+
+
+class Loc(NamedTuple):
+    POS = (1, 2, 3, 4, 5, 6, 7, 8, 9)
+
+    r: int
+    c: int
+
+    def __str__(self) -> str:
+        return f"[r{self.r}c{self.c}]"
+
+    @classmethod
+    def box4loc(cls, loc: Self) -> int:
+        assert loc.r in cls.POS and loc.c in cls.POS
+        r0 = (loc.r - 1) // 3 * 3
+        c0 = (loc.c - 1) // 3
+        return r0 + c0 + 1
+
+    @classmethod
+    def box4row(cls, row: int) -> tuple[int, int, int]:
+        assert row in cls.POS
+        b0 = (row - 1) // 3 * 3
+        return (b0 + 1, b0 + 2, b0 + 3)
+
+    @classmethod
+    def box4col(cls, col: int) -> tuple[int, int, int]:
+        assert col in cls.POS
+        b0 = (col - 1) // 3
+        return (b0 + 1, b0 + 4, b0 + 7)
+
+    @classmethod
+    def row4box(cls, box: int) -> tuple[int, int, int]:
+        assert box in cls.POS
+        r0 = (box - 1) // 3 * 3
+        return (r0 + 1, r0 + 2, r0 + 3)
+
+    @classmethod
+    def col4box(cls, box: int) -> tuple[int, int, int]:
+        assert box in cls.POS
+        c0 = (box - 1) % 3 * 3
+        return (c0 + 1, c0 + 2, c0 + 3)
 
 
 class Cell(NamedTuple):
