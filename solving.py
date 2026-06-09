@@ -73,14 +73,3 @@ async def solver(initial: Board, *resolvers: Resolver) -> Solving:
             resolver = await orchestra.asend(current)
         except StopAsyncIteration:
             break
-
-
-async def solve_silent(initial: Board, *resolvers: Resolver):
-    result = initial
-    _, _, drafted = result.validate()
-    assert drafted
-    async for _, _, result in solver(initial, *resolvers):
-        complete, valid, stuck = result.validate()
-        if complete or not valid or stuck:
-            break
-    return result

@@ -2,8 +2,8 @@ from functools import reduce
 from itertools import chain as iterchain
 from typing import Iterable, NamedTuple, Self
 
-from board import Digits, Loc, Cell, Board
-from topology import Zone
+from board import Digits, Loc, Cell
+from topology import EVERY, Zone
 
 iterflat = iterchain.from_iterable
 
@@ -25,6 +25,14 @@ class Node(NamedTuple):
     @property
     def is_singular(self) -> bool:
         return len(self.digits) == 1
+
+    @property
+    def is_casual(self) -> bool:
+        return self.is_cellular and self.is_singular
+
+    @property
+    def is_triplet(self) -> bool:
+        return self.zone.box is not EVERY and (self.zone.row is not EVERY or self.zone.col is not EVERY)
 
     @classmethod
     def C(cls, cell: Cell):
@@ -86,6 +94,20 @@ class Link(tuple[Node, Node]):
 
     CHAR = "~"
 
+    @property
+    def is_casual(self):
+        return self[0].is_casual and self[1].is_casual
+
+    @property
+    def is_bival(self):
+        n1, n2 = self
+        return self.is_casual and n1.loc() == n2.loc() and n1.dig() != n2.dig()
+
+    @property
+    def is_biloc(self):
+        n1, n2 = self
+        return self.is_casual and n1.loc() != n2.loc() and n1.dig() == n2.dig()
+
     def reversed(self) -> Self:
         return self.__class__((self[1], self[0]))
 
@@ -117,10 +139,18 @@ class Chain(tuple[Link, ...]):
 
     ALTERATING = [HLink, SLink]
 
-    @classmethod
-    def init(cls, link: HLink):
-        assert isinstance(link, HLink)
-        return cls((link,))
+    @property
+    def edges(self) -> tuple[Node, Node]:
+        return (self[0][0], self[-1][-1])
+
+    @property
+    def is_loop(self):
+        e1, e2 = self.edges
+        return e1 == e2
+
+    @property
+    def is_hardend(self):
+        return isinstance(self[0], HLink) and isinstance(self[-1], HLink)
 
     @classmethod
     def extend(cls, chain: Self, *links: Link) -> Self:
@@ -138,14 +168,6 @@ class Chain(tuple[Link, ...]):
     def anchors(self) -> set[Node]:
         """All anchor points in the chain"""
         return set(iterflat(self))
-
-    @property
-    def edges(self) -> tuple[Node, Node]:
-        return (self[0][0], self[-1][1])
-
-    @property
-    def is_loop(self):
-        return self[0][0] == self[-1][1]
 
     def __eq__(self, other: Self):
         return frozenset(self) == frozenset(other)
