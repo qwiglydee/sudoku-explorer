@@ -177,3 +177,24 @@ class Board:
         content = list(orig.content)
         content[cls._idx(cell.loc)] = Digits(cell.digits)
         return cls(content)
+
+    def validate(self) -> tuple[bool, bool, bool]:
+        """Check completeness and validness (even for incomplete) and draftness"""
+        cells = list(iter(self))
+
+        complete = sum(c.is_final for c in cells) == 81
+        drafted = sum(c.is_draft for c in cells) > 0
+
+        def valid_slice(locs: Iterable[Loc]):
+            cells = [self.get(loc) for loc in locs]
+            finals = tuple(filter(lambda c: c.is_final, cells))
+            digits = set(c.final for c in finals)
+            return len(finals) == len(digits)
+
+        valid = (
+            all(valid_slice(Loc(r, c) for r in Loc.row4box(i) for c in Loc.col4box(i)) for i in Loc.POS)
+            and all(valid_slice(Loc(i, c) for c in Loc.POS) for i in Loc.POS)
+            and all(valid_slice(Loc(r, i) for r in Loc.POS) for i in Loc.POS)
+        )
+
+        return complete, valid, drafted

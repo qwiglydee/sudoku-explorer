@@ -95,20 +95,6 @@ def fillempty(cell: Cell):
     return Cell(cell.loc, Digits(DIGITS)) if cell.is_empty else cell
 
 
-def validate(board: Board):
-    if not all(c.is_final for c in iter(board)):
-        return "INCOMPLETE"
-
-    def fulfiled(zone: Zone):
-        finals = finalborhood(board, zone)
-        return set(c.final for c in finals) == DIGITS
-
-    if all(map(fulfiled, Zone.Units())):
-        return "SOLVED"
-    else:
-        return "BROKEN"
-
-
 def filt_finals(c: Cell):
     return c.is_final
 

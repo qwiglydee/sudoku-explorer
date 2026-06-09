@@ -7,7 +7,6 @@ from collections.abc import Generator, AsyncGenerator
 from dataclasses import dataclass, field
 
 from board import Digits, Cell, Board
-from utils import validate
 
 
 @dataclass
@@ -78,31 +77,10 @@ async def solver(initial: Board, *resolvers: Resolver) -> Solving:
 
 async def solve_silent(initial: Board, *resolvers: Resolver):
     result = initial
+    _, _, drafted = result.validate()
+    assert drafted
     async for _, _, result in solver(initial, *resolvers):
-        pass
-    return result
-
-
-async def solve_logging(initial: Board, /, *resolvers: Resolver, filtout: set[str] | None = None):
-    result = initial
-    iterations = 0
-    async for resolver, resolution, result in solver(initial, *resolvers):
-        iterations += 1
-        if filtout and resolver.__name__ in filtout:
-            continue
-        print(f"{iterations:03d} {resolver.__name__}", end=": ")
-        if resolution.castaways:
-            print("-= {", " ".join(map(str, resolution.castaways)), "}", end=" ")
-        if resolution.finals:
-            print(":= {", " ".join(map(str, resolution.finals)), "}", end=" ")
-        if resolution.highlights:
-            if "zone" in resolution.highlights:
-                print("@", resolution.highlights["zone"], end=" ")
-            print("#", end=" ")
-            if "anchors" in resolution.highlights:
-                print(" ".join(map(str, resolution.highlights["anchors"])), end=" ")
-            if "chain" in resolution.highlights:
-                print(resolution.highlights["chain"], end=" ")
-        print()
-    print(validate(result), "in", iterations)
+        complete, valid, stuck = result.validate()
+        if complete or not valid or stuck:
+            break
     return result
