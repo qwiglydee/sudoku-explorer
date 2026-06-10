@@ -13,38 +13,6 @@ def diff(b1: Board, b2: Board):
     return Board((c2 - c1 for c1, c2 in zip(b1.content, b2.content)))
 
 
-def bparse(literal: str):
-    """Parse string dump row by row:
-    spaces are ignored
-    dots make empty cells
-    """
-    init = re.sub(r"\s+", "", literal)
-    return Board({int(d)} if d != "." else {} for d in init)
-
-
-def bprint(board: Board):
-    for r in range(27):
-        r1 = 1 + r
-        r0 = r // 3
-        ri = r % 3
-        for c in range(27):
-            c1 = 1 + c
-            c0 = c // 3
-            ci = c % 3
-            loc = Loc(1 + r0, 1 + c0)
-            cell = board.get(loc)
-            d = ci % 3 + 1 + 3 * (ri % 3)
-            end = "\n" if c1 == 27 else "║" if c1 % 9 == 0 else "│" if c1 % 3 == 0 else ""
-            print(d if d in cell else " ", end=end)
-
-        if r1 == 27:
-            print()
-        elif r1 % 9 == 0:
-            print("═══╪═══╪═══╬═══╪═══╪═══╬═══╪═══╪═══")
-        elif r1 % 3 == 0:
-            print("───┼───┼───╫───┼───┼───╫───┼───┼───")
-
-
 def picture(board: Board) -> str:
     """Convert a Grid to a Picture string, one line at a time."""
 
@@ -65,6 +33,34 @@ def picture(board: Board) -> str:
         return "".join(cell(r, c) for c in range(1, 10)) + (dash3 if r in (3, 6) else "")
 
     return "\n".join(map(line, range(1, 10)))
+
+
+def parsepic_wide(source: str):
+    source = re.sub(r"[─┼│\-+|]+", " ", source)
+    source = source.strip()
+    cells = re.split(r"\s+", source)
+    assert len(cells) == 81
+    return Board(Digits(map(int, cell)) for cell in cells)
+
+
+def parsepic_init(source: str):
+    source = source.strip()
+    source = re.sub(r"[─┼\-+]+", "", source)
+    source = re.sub(r"[│|]", " ", source)
+    if " " in source:
+        cells = re.split(r"\s+", source)
+    else:
+        source = re.sub(r"\s+", "", source)
+        cells = tuple(source)
+    assert len(cells) == 81
+    return Board(DIGITS if cell == "." else Digits(map(int, cell)) for cell in cells)
+
+
+def parsepic(picture: str):
+    if "." in picture:
+        return parsepic_init(picture)
+    else:
+        return parsepic_wide(picture)
 
 
 def neighborhood(board: Board, zone: Zone | Iterable[Loc]) -> Iterable[Cell]:
