@@ -46,6 +46,10 @@ class Node(NamedTuple):
         assert self.is_singular
         return tuple(self.digits)[0]
 
+    def cell(self):
+        assert self.is_cellular
+        return Cell(self.zone.loc(), self.digits)
+
     @classmethod
     def at(cls, where: Loc | Zone | Cell, what: int | Iterable[int]) -> Self:
         digits = Digits((what,)) if isinstance(what, int) else Digits(what)
