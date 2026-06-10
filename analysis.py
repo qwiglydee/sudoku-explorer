@@ -16,7 +16,7 @@ class Node(NamedTuple):
     """
 
     zone: Zone
-    digits: Digits
+    digits: Digits  # why tho ?
 
     @property
     def is_cellular(self) -> bool:
@@ -38,10 +38,12 @@ class Node(NamedTuple):
     def C(cls, cell: Cell):
         return cls(Zone.L(cell.loc), cell.digits)
 
+    @property
     def loc(self) -> Loc:
         assert self.is_cellular
         return self.zone.loc()
 
+    @property
     def dig(self) -> int:
         assert self.is_singular
         return tuple(self.digits)[0]
@@ -105,12 +107,12 @@ class Link(tuple[Node, Node]):
     @property
     def is_bival(self):
         n1, n2 = self
-        return self.is_casual and n1.loc() == n2.loc() and n1.dig() != n2.dig()
+        return self.is_casual and n1.loc == n2.loc and n1.dig != n2.dig
 
     @property
     def is_biloc(self):
         n1, n2 = self
-        return self.is_casual and n1.loc() != n2.loc() and n1.dig() == n2.dig()
+        return self.is_casual and n1.loc != n2.loc and n1.dig == n2.dig
 
     def reversed(self) -> Self:
         return self.__class__((self[1], self[0]))
