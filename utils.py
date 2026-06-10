@@ -40,7 +40,7 @@ def parsepic_wide(source: str):
     source = source.strip()
     cells = re.split(r"\s+", source)
     assert len(cells) == 81
-    return Board(Digits(map(int, cell)) for cell in cells)
+    return Board(DIGITS if cell == "." else Digits(map(int, cell)) for cell in cells)
 
 
 def parsepic_init(source: str):
