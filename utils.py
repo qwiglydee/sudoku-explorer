@@ -9,10 +9,6 @@ from topology import Zone
 iterflat = iterchain.from_iterable
 
 
-def diff(b1: Board, b2: Board):
-    return Board((c2 - c1 for c1, c2 in zip(b1.content, b2.content)))
-
-
 def picture(board: Board) -> str:
     """Convert a Grid to a Picture string, one line at a time."""
 
@@ -83,6 +79,10 @@ def count_finals(cells: Board | Iterable[Cell]) -> Counter[int]:
     return Counter(c.final for c in iter(cells) if c.is_final)  # type: ignore impossible None's
 
 
+def grab_digits(cells: Board | Iterable[Cell]) -> set[int]:
+    return set(iterflat(c.digits for c in iter(cells)))
+
+
 def count_digits(cells: Board | Iterable[Cell]) -> Counter[int]:
     return Counter(iterflat(c.digits for c in iter(cells)))
 
@@ -99,20 +99,32 @@ def filt_drafts(c: Cell):
     return c.is_draft
 
 
-def filt_having(d: int | Iterable[int]):
+def cell_having(cell: Cell, d: int | Digits) -> bool:
+    if isinstance(d, int):
+        return d in cell.digits
+    else:
+        return d <= cell.digits
+
+
+def filt_having(d: int | Digits):
     if isinstance(d, int):
         return lambda c: d in c.digits
     else:
-        dd = Digits(d)
-        return lambda c: dd <= c.digits
+        return lambda c: d <= c.digits
 
 
-def filt_havesome(d: int | Iterable[int]):
+def cell_havesome(cell: Cell, d: int | Digits) -> bool:
+    if isinstance(d, int):
+        return d in cell.digits
+    else:
+        return len(d & cell.digits) > 0
+
+
+def filt_havesome(d: int | Digits):
     if isinstance(d, int):
         return lambda c: d in c.digits
     else:
-        dd = Digits(d)
-        return lambda c: len(dd & c.digits)
+        return lambda c: len(d & c.digits)
 
 
 def flat_cells(cc: Iterable[Cell]):

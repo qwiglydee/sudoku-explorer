@@ -23,7 +23,7 @@ class Loc(NamedTuple):
     c: int
 
     def __str__(self) -> str:
-        return f"[r{self.r}c{self.c}]"
+        return f"r{self.r}c{self.c}"
 
     @classmethod
     def box4loc(cls, loc: Self) -> int:
@@ -96,7 +96,7 @@ class Cell(NamedTuple):
             yield d
 
     def __str__(self):
-        cont = "".join(map(str, self.digits))
+        cont = "".join(map(str, sorted(self.digits)))
         return f"{cont}@{self.loc}"
 
 
@@ -165,14 +165,7 @@ class Board:
         return cls(tuple(trans(cell).digits for cell in iter(orig)))
 
     @classmethod
-    def replace(cls, orig: Self, loc: Loc, repl: Iterable[int]) -> Self:
-        """Replace single cell"""
-        content = list(orig.content)
-        content[cls._idx(loc)] = Digits(repl)
-        return cls(content)
-
-    @classmethod
-    def insert(cls, orig: Self, cell: Cell) -> Self:
+    def replace(cls, orig: Self, cell: Cell) -> Self:
         """Replace single cell"""
         content = list(orig.content)
         content[cls._idx(cell.loc)] = Digits(cell.digits)

@@ -62,7 +62,14 @@ class Node(NamedTuple):
             return cls(Zone.L(where), digits)
         if isinstance(where, Cell):
             return cls(Zone.L(where.loc), digits)
+        raise TypeError()
 
+    @classmethod
+    def forz(cls, where: Loc | Zone) -> Self:
+        if isinstance(where, Zone):
+            return cls(where, Digits())
+        if isinstance(where, Loc):
+            return cls(Zone.L(where), Digits())
         raise TypeError()
 
     def __str__(self):

@@ -4,42 +4,52 @@ Using async generators to integrate with interactive scripts/gui
 
 from typing import Any, Callable
 from collections.abc import Generator, AsyncGenerator
-from dataclasses import dataclass, field
+from functools import wraps
 
-from board import Digits, Cell, Board
-
-
-@dataclass
-class Resolution:
-    """Single move of solving"""
-
-    castaways: set[Cell] = field(default_factory=set)
-    finals: set[Cell] = field(default_factory=set)
-
-    def apply(self, current: Board) -> Board:
-        """Removing castaways and isolating all finals"""
-
-        for away in self.castaways:
-            orig = current.get(away.loc)
-            digits = Digits(orig.digits - away.digits)
-            current = Board.insert(current, Cell(away.loc, digits))
-
-        for cell in self.finals:
-            current = Board.insert(current, cell)
-
-        return current
-
-    # for inspecting
-    highlights: dict[str, Any] = field(default_factory=dict)
+from board import Board, Cell, Digits
+from analysis import Node
 
 
-Resolving = Generator[Resolution]
+Pattern = dict[str, set[Node] | Any]
+Resolving = Generator[Pattern]
 Resolver = Callable[[Board], Resolving]
-Solving = AsyncGenerator[tuple[Resolver, Resolution, Board]]
+Solving = AsyncGenerator[tuple[Resolver, Pattern, Board]]
+
+
+def removler(spoilers: set[Node]):
+    def trans(cell: Cell) -> Cell:
+        for s in spoilers:
+            if cell.loc in s.zone:
+                return Cell(cell.loc, Digits(cell.digits - s.digits))
+        return cell
+
+    return trans
+
+
+def resolve(board: Board, pattern: Pattern):
+    assert "spoilers" in pattern
+    spoilers = pattern["spoilers"]
+    assert isinstance(spoilers, set)
+    return Board.transform(board, removler(spoilers))
+
+
+def onceolver(fn: Resolver):
+    """Makes resolver to fire only once"""
+
+    @wraps(fn)
+    def wrapped(board: Board):
+        scanning = fn(board)
+        try:
+            yield next(scanning)
+        except StopIteration:
+            pass
+
+    return wrapped
 
 
 async def orchestrator(initial: Board, *resolvers: Resolver) -> AsyncGenerator[Resolver, Board | None]:
     """Orchestrating resolvers based on their result
+    Receives board after applying last resolver
     Yields resolvers in sequence
     - when nothing changed, turn moves to next resolver
     - when something changed, sequence resets
@@ -59,16 +69,16 @@ async def orchestrator(initial: Board, *resolvers: Resolver) -> AsyncGenerator[R
 
 async def solver(initial: Board, *resolvers: Resolver) -> Solving:
     """Applies all resolutions from orchestra of resolvers
-    Yield intermediate results for inspecting
+    Yields matching patterns and their results
     """
     orchestra = orchestrator(initial, *resolvers)
 
     current = initial
     resolver = await orchestra.asend(None)  # type: ignore that fucking caveat
     while True:
-        for resolution in resolver(current):
-            current = resolution.apply(current)
-            yield resolver, resolution, current
+        for pattern in resolver(current):
+            current = resolve(current, pattern)
+            yield resolver, pattern, current
         try:
             resolver = await orchestra.asend(current)
         except StopAsyncIteration:
