@@ -47,39 +47,38 @@ def onceolver(fn: Resolver):
     return wrapped
 
 
-async def orchestrator(initial: Board, *resolvers: Resolver) -> AsyncGenerator[Resolver, Board | None]:
+async def orchestrator(*resolvers: Resolver) -> AsyncGenerator[Resolver, bool]:
     """Orchestrating resolvers based on their result
-    Receives board after applying last resolver
-    Yields resolvers in sequence
-    - when nothing changed, turn moves to next resolver
-    - when something changed, sequence resets
+    Yields resolvers in sequence:
+    - if something worked, sequence is reset,
+    - if didn't work, move to a next resolver
     """
     idx = 0
     lng = len(resolvers)
 
-    current = initial
     while idx < lng:
-        last = current
-        current = yield resolvers[idx]
-        if current == last:
-            idx += 1
-        else:
+        worked = yield resolvers[idx]
+        if worked:
             idx = 0
+        else:
+            idx += 1
 
 
 async def solver(initial: Board, *resolvers: Resolver) -> Solving:
     """Applies all resolutions from orchestra of resolvers
     Yields matching patterns and their results
     """
-    orchestra = orchestrator(initial, *resolvers)
+    orchestra = orchestrator(*resolvers)
 
     current = initial
-    resolver = await orchestra.asend(None)  # type: ignore that fucking caveat
-    while True:
-        for pattern in resolver(current):
-            current = resolve(current, pattern)
-            yield resolver, pattern, current
-        try:
-            resolver = await orchestra.asend(current)
-        except StopAsyncIteration:
-            break
+    try:
+        worked = False
+        while True:
+            resolver = await orchestra.asend(worked)
+            last = current
+            for pattern in resolver(current):
+                current = resolve(current, pattern)
+                yield resolver, pattern, current
+            worked = last != current
+    except StopAsyncIteration:
+        pass
