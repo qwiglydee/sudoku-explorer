@@ -129,3 +129,10 @@ def filt_havesome(d: int | Digits):
 
 def flat_cells(cc: Iterable[Cell]):
     return iterflat(c.digits for c in cc)
+
+
+def boardiff(b0: Board, b2: Board) -> Iterable[Cell]:
+    """Compare boards, yield removed content"""
+    for c0, c2 in zip(iter(b0), iter(b2)):
+        if c0.digits != c2.digits:
+            yield Cell(c0.loc, Digits(c0.digits - c2.digits))

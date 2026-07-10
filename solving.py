@@ -7,7 +7,8 @@ from collections.abc import Generator, AsyncGenerator
 from functools import wraps
 
 from board import Board, Cell, Digits
-from analysis import Node
+from utils import boardiff
+from targeting import Node
 
 
 Pattern = dict[str, set[Node] | Any]
@@ -82,3 +83,41 @@ async def solver(initial: Board, *resolvers: Resolver) -> Solving:
             worked = last != current
     except StopAsyncIteration:
         pass
+
+
+async def solve_silent(initial: Board, *resolvers: Resolver):
+    result = initial
+    _, _, drafted = result.validate()
+    assert drafted
+    async for _, _, result in solver(initial, *resolvers):
+        complete, valid, drafted = result.validate()
+        if complete or not valid or not drafted:
+            break
+    return result
+
+
+async def solve_logging(initial: Board, /, *resolvers: Resolver, filtout: set[str] | None = None):
+    result = initial
+    iterations = 0
+    _, _, drafted = result.validate()
+    assert drafted
+    current = result
+    async for resolver, pattern, result in solver(initial, *resolvers):
+        iterations += 1
+        if filtout and resolver.__name__ in filtout:
+            continue
+        print(f"{iterations:03d} {resolver.__name__}", end=": ")
+        diff = list(boardiff(current, result))
+        print("-", " ".join(map(str, diff)))
+        # pprint(rule)
+
+        current = result
+        complete, valid, drafted = result.validate()
+        if complete or not valid or not drafted:
+            break
+
+    complete, valid, drafted = result.validate()
+    stuck = not complete and not drafted
+    print("========")
+    print(f"{iterations=} {complete=} {valid=} {stuck=}")
+    return result
