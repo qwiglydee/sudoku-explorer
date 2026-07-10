@@ -47,7 +47,7 @@ def onceolver(fn: Resolver):
     return wrapped
 
 
-async def orchestrator(*resolvers: Resolver) -> AsyncGenerator[Resolver, bool]:
+async def orchestrator(*resolvers: Resolver) -> AsyncGenerator[Resolver, bool | None]:
     """Orchestrating resolvers based on their result
     Yields resolvers in sequence:
     - if something worked, sequence is reset,
@@ -72,7 +72,7 @@ async def solver(initial: Board, *resolvers: Resolver) -> Solving:
 
     current = initial
     try:
-        worked = False
+        worked = None
         while True:
             resolver = await orchestra.asend(worked)
             last = current
