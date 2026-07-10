@@ -96,7 +96,7 @@ async def solve_silent(initial: Board, *resolvers: Resolver):
     return result
 
 
-async def solve_logging(initial: Board, /, *resolvers: Resolver, filtout: set[str] | None = None):
+async def solve_logging(initial: Board, *resolvers: Resolver, mute: set[str] = set(), verbose: set[str] = set()):
     result = initial
     iterations = 0
     _, _, drafted = result.validate()
@@ -104,12 +104,19 @@ async def solve_logging(initial: Board, /, *resolvers: Resolver, filtout: set[st
     current = result
     async for resolver, pattern, result in solver(initial, *resolvers):
         iterations += 1
-        if filtout and resolver.__name__ in filtout:
-            continue
-        print(f"{iterations:03d} {resolver.__name__}", end=": ")
-        diff = list(boardiff(current, result))
-        print("-", " ".join(map(str, diff)))
-        # pprint(rule)
+        if resolver.__name__ not in mute:
+            print(f"{iterations:03d} {resolver.__name__}", end=": ")
+            diff = list(boardiff(current, result))
+            print("-", " ".join(map(str, diff)), end=" ")
+
+            if "*" in verbose or resolver.__name__ in verbose:
+                for k, v in pattern.items():
+                    if isinstance(v, set):
+                        s = " ".join(map(str, v))
+                        print("#", f"{k}:{{ {s} }}", end=" ")
+                    else:
+                        print("#", f"{k}:{v}", end=" ")
+            print()
 
         current = result
         complete, valid, drafted = result.validate()
