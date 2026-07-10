@@ -1,4 +1,3 @@
-from functools import reduce
 from itertools import chain as iterchain
 from typing import Iterable, NamedTuple, Self
 
@@ -93,8 +92,3 @@ def cellmatching(node: Node, cells: Iterable[Cell]) -> Iterable[Cell]:
 def cellspoiling(node: Node, cells: Iterable[Cell]) -> Iterable[Cell]:
     matching = (node.spoiling(cell) for cell in cells)
     return (res for res in matching if len(res))
-
-
-class MultiNode(frozenset[Node]):
-    # TODO
-    pass
