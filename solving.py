@@ -107,7 +107,7 @@ async def solve_logging(initial: Board, *resolvers: Resolver, mute: set[str] = s
         if resolver.__name__ not in mute:
             print(f"{iterations:03d} {resolver.__name__}", end=": ")
             diff = list(boardiff(current, result))
-            print("-", " ".join(map(str, diff)), end=" ")
+            print("-", " ".join(map(str, diff)), end="\t")
 
             if "*" in verbose or resolver.__name__ in verbose:
                 for k, v in pattern.items():
